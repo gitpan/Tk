@@ -1,30 +1,27 @@
 /*
-  Copyright (c) 1995-2004 Nick Ing-Simmons. All rights reserved.
+  Copyright (c) 1995 Nick Ing-Simmons. All rights reserved.
   This program is free software; you can redistribute it and/or
   modify it under the same terms as Perl itself.
 */
-#define PERL_NO_GET_CONTEXT
+
 #include <EXTERN.h>
 #include <perl.h>
 #include <XSUB.h>
-#include <patchlevel.h>
 #include <fcntl.h>
 
 #include "tkGlue.def"
 
 #include "pTk/tkPort.h"
 #include "pTk/tkInt.h"
-#include "pTk/tkEvent.h"
-#include "pTk/tkEvent_f.h"
-#include "pTk/tkEvent.m"
+#include "pTk/tkVMacro.h"
 #include "tkGlue.h"
 #include "tkGlue.m"
 
-DECLARE_EVENT;
-
 #define InputStream PerlIO *
-#define OutputStream PerlIO *
 
+extern void perror _((const char *));
+
+DECLARE_VTABLES;
 
 typedef struct
  {
@@ -34,22 +31,33 @@ typedef struct
   int offset;
   int count;
   int error;
-  int eof;
+  int eof; 
  } nIO_read;
 
+#ifdef USE2
+static int read_handler _((ClientData clientData, int mask, int flags));
+static int 
+#else
 static void read_handler _((ClientData clientData, int mask));
 static void
-read_handler(clientData, mask)
+#endif
+read_handler(clientData, mask
+#ifdef USE2
+,flags
+#endif
+)
 ClientData clientData;
 int mask;
+#ifdef USE2
+int flags;
+#endif
 {
- dTHX; /* FIXME */
- if (mask & TCL_READABLE)
+ if (mask & TK_READABLE)
   {
    nIO_read *info = (nIO_read *) clientData;
    SV *buf = info->buf;
    int count;
-   SvGROW(buf,(Size_t) (info->offset+info->len+1));
+   SvGROW(buf,info->offset+info->len+1);
    count = read(PerlIO_fileno(info->f),SvPVX(buf)+info->offset,(size_t) info->len);
    if (count == 0)
     {
@@ -76,33 +84,22 @@ int mask;
   }
 }
 
+static int make_nonblock _((PerlIO *f,int *mode,int *newmode));
 
-#if defined(__WIN32__) && !defined(__CYGWIN__)
-static int
-make_nonblock (pTHX_ PerlIO *f,int *mode,int *newmode)
-{
- croak("Cannot make nonblocking on Win32 yet");
- return -1;
-}
-
-static int
-restore_mode (pTHX_ PerlIO *f,int mode)
-{
- croak("Cannot make nonblocking on Win32 yet");
- return -1;
-}
-#else
-static int
-make_nonblock (pTHX_ PerlIO *f,int *mode,int *newmode)
+static int 
+make_nonblock(f,mode,newmode)
+PerlIO *f;
+int *mode;
+int *newmode;
 {
  int RETVAL = fcntl(PerlIO_fileno(f), F_GETFL, 0);
  if (RETVAL >= 0)
   {
    *newmode = *mode = RETVAL;
 #ifdef O_NONBLOCK
-   /* POSIX style */
+   /* POSIX style */ 
 #ifdef O_NDELAY
-   /* Ooops has O_NDELAY too - make sure we don't
+   /* Ooops has O_NDELAY too - make sure we don't 
     * get SysV behaviour by mistake
     */
    if ((*mode & O_NDELAY) || !(*mode & O_NONBLOCK))
@@ -111,17 +108,17 @@ make_nonblock (pTHX_ PerlIO *f,int *mode,int *newmode)
      RETVAL = fcntl(PerlIO_fileno(f),F_SETFL,*newmode);
     }
 #else
-   /* Standard POSIX */
+   /* Standard POSIX */ 
    if (!(*mode & O_NONBLOCK))
     {
      *newmode = *mode | O_NONBLOCK;
      RETVAL = fcntl(PerlIO_fileno(f),F_SETFL,*newmode);
     }
-#endif
+#endif 
 #else
    /* Not POSIX - better have O_NDELAY or we can't cope.
     * for BSD-ish machines this is an acceptable alternative
-    * for SysV we can't tell "would block" from EOF but that is
+    * for SysV we can't tell "would block" from EOF but that is 
     * the way SysV is...
     */
    if (!(*mode & O_NDELAY))
@@ -134,14 +131,6 @@ make_nonblock (pTHX_ PerlIO *f,int *mode,int *newmode)
  return RETVAL;
 }
 
-static int
-restore_mode (pTHX_ PerlIO *f,int mode)
-{
- return fcntl(PerlIO_fileno(f), F_SETFL, mode);
-}
-
-#endif
-
 static int has_nl _((SV *sv));
 
 static int has_nl(sv)
@@ -152,36 +141,19 @@ SV *sv;
  while (n-- > 0)
   {
    if (*p++ == '\n')
-    return 1;
+    return 1; 
   }
  return 0;
 }
 
+/* Avoid Tcl's hacks here - we have enough of our own */
+#undef write
+#undef read
+#undef open
+
 MODULE = Tk::IO	PACKAGE = Tk::IO
 
-PROTOTYPES: ENABLE
-
-int
-make_nonblock(f,mode,newmode)
-InputStream	f
-int	&mode = NO_INIT
-int	&newmode  = NO_INIT
-CODE:
- {
-  make_nonblock(aTHX_ f,&mode,&newmode);
- }
-OUTPUT:
-  mode
-  newmode
-
-int
-restore_mode(f,mode)
-InputStream	f
-int	mode
-CODE:
- {
-  restore_mode(aTHX_ f,mode);
- }
+PROTOTYPES: DISABLE
 
 SV *
 read(f,buf,len,offset = 0)
@@ -193,31 +165,34 @@ int	offset
   {
    int mode;
    int newmode;
-   int count = make_nonblock(aTHX_ f,&mode,&newmode);
+   int count = make_nonblock(f,&mode,&newmode);
    /* Copy stuff out of PerlIO *  */
-   ST(0) = &PL_sv_undef;
+   ST(0) = &sv_undef;
    if (count == 0)
     {
-     int fd = PerlIO_fileno(f);
-     nIO_read info;
-     info.f   = f;
-     info.buf = buf;
-     info.len = len;
+     nIO_read info;   
+     info.f   = f;    
+     info.buf = buf;  
+     info.len = len;  
      info.offset = offset;
-     info.count  = 0;
-     info.error  = 0;
-     info.eof    = 0;
-     (void)SvUPGRADE(buf, SVt_PV);
-     SvPOK_only(buf);		/* validate pointer */
-     Tcl_CreateFileHandler(fd, TCL_READABLE, read_handler, (ClientData) &info);
-     do
+     info.count  = 0; 
+     info.error  = 0; 
+     info.eof    = 0; 
+     if (!SvUPGRADE(buf, SVt_PV))
       {
-       Tcl_DoOneEvent(0);
+       RETVAL = &sv_undef;
+       return;
+      }
+     SvPOK_only(buf);		/* validate pointer */
+     Tk_CreateFileHandler(PerlIO_fileno(f), TK_READABLE, read_handler, (ClientData) &info);
+     do                                        
+      {                                        
+       Tk_DoOneEvent(0);                       
       } while (!info.eof && !info.error && info.count == 0);
-     Tcl_DeleteFileHandler(fd);
+     Tk_DeleteFileHandler(PerlIO_fileno(f)); 
      if (mode != newmode)
       {
-       count = restore_mode(aTHX_ f,mode);
+       count = fcntl(PerlIO_fileno(f),F_SETFL,mode);
        if (count != 0)
         croak("Cannot make blocking");
       }
@@ -237,33 +212,32 @@ InputStream	f
   {
    int mode;
    int newmode;
-   int count = make_nonblock(aTHX_ f,&mode,&newmode);
+   int count = make_nonblock(f,&mode,&newmode);
    /* Copy stuff out of PerlIO *  */
-   ST(0) = &PL_sv_undef;
+   ST(0) = &sv_undef;
    if (count == 0)
     {
      SV *buf =  newSVpv("",0);
-     int fd = PerlIO_fileno(f);
-     nIO_read info;
-     info.f   = f;
-     info.buf = buf;
-     info.len = 1;
+     nIO_read info;   
+     info.f   = f;    
+     info.buf = buf;  
+     info.len = 1;  
      info.offset = 0;
-     info.count  = 0;
-     info.error  = 0;
-     info.eof    = 0;
-     Tcl_CreateFileHandler(fd, TCL_READABLE, read_handler, (ClientData) &info);
+     info.count  = 0; 
+     info.error  = 0; 
+     info.eof    = 0; 
+     Tk_CreateFileHandler(PerlIO_fileno(f), TK_READABLE, read_handler, (ClientData) &info);
      while (!info.eof && !info.error && !has_nl(buf))
-      {
+      {                                        
        info.len = 1;
        info.count = 0;
        while (!info.eof && !info.error && !info.count)
-        Tcl_DoOneEvent(0);
-      }
-     Tcl_DeleteFileHandler(fd);
+        Tk_DoOneEvent(0);                       
+      } 
+     Tk_DeleteFileHandler(PerlIO_fileno(f)); 
      if (mode != newmode)
       {
-       count = restore_mode(aTHX_ f,mode);
+       count = fcntl(PerlIO_fileno(f),F_SETFL,mode);
        if (count != 0)
         croak("Cannot make blocking");
       }
@@ -284,7 +258,9 @@ InputStream	f
     }
   }
 
+
+
 BOOT:
  {
-  IMPORT_EVENT;
+  IMPORT_VTABLES;
  }

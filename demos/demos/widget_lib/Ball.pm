@@ -1,6 +1,5 @@
 
-package # hide from CPAN indexer
-    Ball;
+package Ball;
 
 # Ball.pm, a class module that allows concurrent simulation (canvas) instances.
 #
@@ -10,21 +9,20 @@ package # hide from CPAN indexer
 #
 # Essentially, move_all_balls() is invoked to move all of the balls in a
 # simulation's @BALLS list once - from their current to their new postion.
-# After moving one ball a call to DoOneEvent() is made to handle pending
-# XEvents.  The *user* of this  module, in this case bounce.pl, has their
-# own main loop which also calls DoOneEvent() and move_all_balls() to keep
+# After moving one ball a call to DoOneEvent() is made to handle pending 
+# XEvents.  The *user* of this  module, in this case bounce.pl, has their 
+# own main loop which also calls DoOneEvent() and move_all_balls() to keep 
 # the simulation active.
 #
 # Gurusamy Sarathy (gsar@engin.umich.edu)
 # Tidied up by SOL.
 
-use vars qw/$VERSION/;
-$VERSION = '4.005'; # $Id: //depot/Tkutf8/demos/demos/widget_lib/Ball.pm#4 $
-
+require 5.002;
+use English;
 use Tk::Canvas;
 use Tk::Widget;
-use Tk qw/DoOneEvent DONT_WAIT/;
-Construct Tk::Canvas 'Ball';
+use Tk qw(DoOneEvent);
+Tk::Canvas->Construct('Ball');
 use strict;
 
 # Class Ball global variables.
@@ -48,13 +46,13 @@ sub new {			# Ball object constructor
     # removes a canvas from the %BALLS hash when the canvas is destroyed, thus
     # keeping %BALLS trimmed and preventing a very slow memory leak.
 
-    my($class, $canvas, %args) = @_;
+    my($class, $canvas, %args) = @ARG;
 
-    my @missing_args = grep ! defined $args{$_}, keys %DEFAULTS;
+    my @missing_args = grep ! defined $args{$ARG}, keys %DEFAULTS;
     @args{@missing_args} = @DEFAULTS{@missing_args};
     my($color, $size, $pos, $vel) = @args{-color, -size, -position, -velocity};
 
-    my $ball = $canvas->create('oval',
+    my $ball = $canvas->create('oval', 
         ($pos->[0] - ($size/2.0)), ($pos->[1] - ($size/2.0)),
         ($pos->[0] + ($size/2.0)), ($pos->[1] + ($size/2.0)),
         -fill => $color,
@@ -65,7 +63,7 @@ sub new {			# Ball object constructor
 
     my $ball_obj = {'canvas_ID' => $ball,
 		    'canvas'    => $canvas,
-		    'color'     => $color,
+		    'color'     => $color, 
 		    'size'      => $size,
 		    'pos'       => [@$pos],
 		    'vel'       => [@$vel],
@@ -83,17 +81,17 @@ sub get_canvas_hash {
     # were ever to fail in the future then only this code needs to be fixed
     # and the Ball class would be up and running in short oder.
 
-    my($class, $canvas) = @_;
+    my($class, $canvas) = @ARG;
 
     return $canvas
 
-} # end get_canvas_hash
+} # end get_canvas_hash    
 
 sub move_one_ball {
 
     # Move one ball, belonging to one simulation, one clock tick.
 
-    my ($ball_obj, $speed_ratio) = @_;
+    my ($ball_obj, $speed_ratio) = @ARG;
 
     my($ball, $canv, $minx, $miny, $maxx, $maxy);
     my($ballx, $bally, $deltax, $deltay);
@@ -132,11 +130,11 @@ sub move_all_balls {
 
     # Move all the balls belong to one simulation instance one clock tick.
 
-    my($class, $canvas, $speed_ratio) = @_;
+    my($class, $canvas, $speed_ratio) = @ARG;
 
     foreach (@{$BALLS{Ball->get_canvas_hash($canvas)}->{'BALLS'}}) {
-        $_->move_one_ball($speed_ratio);
-        DoOneEvent(DONT_WAIT);		# be kind and process XEvents if they arise
+        $ARG->move_one_ball($speed_ratio);
+        DoOneEvent(1);		# be kind and process XEvents if they arise
     }
 
 } # end move_all_balls

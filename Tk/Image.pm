@@ -1,44 +1,28 @@
-# Copyright (c) 1995-2003 Nick Ing-Simmons. All rights reserved.
-# This program is free software; you can redistribute it and/or
-# modify it under the same terms as Perl itself.
 package Tk::Image;
 
 # This module does for images what Tk::Widget does for widgets:
 # provides a base class for them to inherit from.
-require DynaLoader;
 
-use base qw(DynaLoader Tk); # but are they ?
-
-use vars qw($VERSION);
-$VERSION = '4.011'; # $Id: //depot/Tkutf8/Tk/Image.pm#11 $
+@Tk::Image::ISA = qw(Tk); # but are they ?
 
 sub new
 {
  my $package = shift;
  my $widget  = shift;
- $package->InitClass($widget);
  my $leaf = $package->Tk_image;
- my $obj = $widget->Tk::image('create',$leaf,@_);
- $obj = $widget->_object($obj) unless (ref $obj);
+ my $obj = eval { $widget->image('create',$leaf,@_) };
+ $widget->BackTrace($@) if ($@);
  return bless $obj,$package;
 }
 
-sub Install
+BEGIN 
 {
- # Dynamically loaded image types can install standard images here
- my ($class,$mw) = @_;
+ my $fn;
+ foreach $fn (qw(delete width height type))
+  {
+   *{"$fn"} = sub { shift->image($fn,@_) }; 
+  }
 }
-
-sub ClassInit
-{
- # Carry out class bindings (or whatever)
- my ($package,$mw) = @_;
- return $package;
-}
-
-require Tk::Submethods;
-
-Direct Tk::Submethods ('image' => [qw(delete width height inuse type)]);
 
 sub Tk::Widget::imageNames
 {
@@ -56,10 +40,6 @@ sub Construct
 {
  my ($base,$name) = @_;
  my $class = (caller(0))[0];
-
- # Hack for broken ->isa in perl5.6.0
- delete ${"$class\::"}{'::ISA::CACHE::'} if $] == 5.006;
-
  *{"Tk::Widget::$name"}  = sub { $class->new(@_) };
 }
 
@@ -71,4 +51,4 @@ sub DESTROY
 }
 
 
-1;
+1; 

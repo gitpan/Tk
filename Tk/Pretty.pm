@@ -1,13 +1,6 @@
-# Copyright (c) 1995-2003 Nick Ing-Simmons. All rights reserved.
-# This program is free software; you can redistribute it and/or
-# modify it under the same terms as Perl itself.
 package Tk::Pretty;
 require Exporter;
-
-use vars qw($VERSION @EXPORT);
-$VERSION = '4.006'; # $Id: //depot/Tkutf8/Tk/Pretty.pm#6 $
-
-use base  qw(Exporter);
+@ISA = qw(Exporter);
 
 @EXPORT = qw(Pretty PrintArgs);
 
@@ -20,51 +13,50 @@ sub Pretty
 {
  return pretty_list(@_) if (@_ > 1);
  my $obj = shift;
- return 'undef' unless defined($obj);
+ return "undef" unless defined($obj);
  my $type = "$obj";
  return $type if ($type =~ /=HASH/ && exists($obj->{"_Tcl_CmdInfo_\0"}));
- my $result = '';
+ my $result = "";
  if (ref $obj)
   {
-   my $class;
+   my $class;    
    if ($type =~ /^([^=]+)=(.*)$/)
-    {
+    {            
      $class = $1;
      $type  = $2;
-     $result .= 'bless(';
-    }
+     $result .= "bless(";
+    }            
    if ($type =~ /^ARRAY/)
-    {
-     $result .= '[';
+    {            
+     $result .= "[";
      $result .= pretty_list(@$obj);
-     $result .= ']';
-    }
+     $result .= "]";
+    }            
    elsif ($type =~ /^HASH/)
-    {
-     $result .= '{';
+    {            
+     $result .= "{";
      if (%$obj)
       {
-       my ($key, $value);
        while (($key,$value) = each %$obj)
-        {
-         $result .= $key . '=>' . Pretty($value) . ',';
-        }
+        {            
+         $result .= $key . "=>" . Pretty($value) . ",";
+        }            
        chop($result);
       }
-     $result .= '}';
-    }
+     $result .= "}";
+    }            
    elsif ($type =~ /^REF/)
-    {
+    {            
      $result .= "\\" . Pretty($$obj);
-    }
+    }            
    elsif ($type =~ /^SCALAR/)
-    {
+    {            
      $result .= Pretty($$obj);
-    }
-   else
-    {
+    }            
+   else          
+    {            
      $result .= $type;
-    }
+    }            
    $result .= ",$class)" if (defined $class);
   }
  else

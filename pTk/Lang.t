@@ -1,217 +1,148 @@
 #ifdef _LANG
-VVAR(Tcl_ObjCmdProc *,LangOptionCommand,V_LangOptionCommand)
-#if !defined(TCL_EVENT_IMPLEMENT) || defined(Var)
-VVAR(Tcl_ObjType,tclIntType,V_tclIntType)
-#endif /* #if !defined(TCL_EVENT_IMPLEMENT) || defined(Var) */
-#ifndef LangCmpArg
-VFUNC(int,LangCmpArg,V_LangCmpArg,_ANSI_ARGS_((CONST Tcl_Obj *,CONST Tcl_Obj *)))
-#endif /* #ifndef LangCmpArg */
-
-#ifndef LangCmpOpt
-VFUNC(int,LangCmpOpt,V_LangCmpOpt,_ANSI_ARGS_((CONST char *opt,CONST char *arg,size_t length)))
-#endif /* #ifndef LangCmpOpt */
-
-#ifndef LangConfigObj
-VFUNC(int,LangConfigObj,V_LangConfigObj,_ANSI_ARGS_((Tcl_Interp *interp, Tcl_Obj **save,
-				      Tcl_Obj *obj, int type)))
-#endif /* #ifndef LangConfigObj */
-
-#ifndef LangCopyArg
-VFUNC(Tcl_Obj *,LangCopyArg,V_LangCopyArg,_ANSI_ARGS_((Tcl_Obj *)))
-#endif /* #ifndef LangCopyArg */
-
-#ifndef LangDoCallback
+VFUNC(Arg *,LangAllocVec,V_LangAllocVec,_ANSI_ARGS_((int count)))
+VFUNC(void,LangBadFile,V_LangBadFile,_ANSI_ARGS_((int fd)))
+VFUNC(Arg,LangCallbackArg,V_LangCallbackArg,_ANSI_ARGS_((LangCallback *)))
+VFUNC(void,LangCloseHandler,V_LangCloseHandler,_ANSI_ARGS_((Tcl_Interp *interp,Arg arg,FILE *f,Lang_FileCloseProc *proc)))
+VFUNC(int,LangCmpArg,V_LangCmpArg,_ANSI_ARGS_((Arg,Arg)))
+VFUNC(int,LangCmpCallback,V_LangCmpCallback,_ANSI_ARGS_((LangCallback *a,Arg b)))
+VFUNC(int,LangCmpOpt,V_LangCmpOpt,_ANSI_ARGS_((char *opt,char *arg,size_t length)))
+VFUNC(Arg,LangCopyArg,V_LangCopyArg,_ANSI_ARGS_((Arg)))
+VFUNC(LangCallback *,LangCopyCallback,V_LangCopyCallback,_ANSI_ARGS_((LangCallback *)))
 VFUNC(int,LangDoCallback,V_LangDoCallback,_ANSI_ARGS_((Tcl_Interp *,LangCallback *,int result,int argc,...)))
-#endif /* #ifndef LangDoCallback */
-
-#ifndef LangDumpVec
-VFUNC(void,LangDumpVec,V_LangDumpVec,_ANSI_ARGS_((CONST char *tag, int argc, Tcl_Obj **vec)))
-#endif /* #ifndef LangDumpVec */
-
-#ifndef LangEventHook
+VFUNC(int,LangEval,V_LangEval,_ANSI_ARGS_((Tcl_Interp *interp, char *cmd, int global)))
+VFUNC(int,LangEventCallback,V_LangEventCallback,_ANSI_ARGS_((Tcl_Interp *,LangCallback *,XEvent *,KeySym)))
 VFUNC(int,LangEventHook,V_LangEventHook,_ANSI_ARGS_((int flags)))
-#endif /* #ifndef LangEventHook */
-
-#ifndef LangFontRank
-VFUNC(unsigned int,LangFontRank,V_LangFontRank,_ANSI_ARGS_((unsigned int suggested,
-			    int ch, CONST char *gotName,
-			    CONST char *wantFoundary,
-			    CONST struct TkFontAttributes *wantAttrib,
-			    CONST char *wantEncoding,
-			    CONST char *gotFoundary,
-			    CONST struct TkFontAttributes *gotAttrib,
-			    CONST char *gotEncoding)))
-#endif /* #ifndef LangFontRank */
-
-#ifndef LangFreeArg
-VFUNC(void,LangFreeArg,V_LangFreeArg,_ANSI_ARGS_((Tcl_Obj *,Tcl_FreeProc *freeProc)))
-#endif /* #ifndef LangFreeArg */
-
-#ifndef LangFreeVar
+VFUNC(void,LangExit,V_LangExit,_ANSI_ARGS_((int)))
+VFUNC(void,LangFreeArg,V_LangFreeArg,_ANSI_ARGS_((Arg,Tcl_FreeProc *freeProc)))
+VFUNC(void,LangFreeCallback,V_LangFreeCallback,_ANSI_ARGS_((LangCallback *)))
 VFUNC(void,LangFreeVar,V_LangFreeVar,_ANSI_ARGS_((Var)))
-#endif /* #ifndef LangFreeVar */
-
-#ifndef LangLibraryDir
+VFUNC(void,LangFreeVec,V_LangFreeVec,_ANSI_ARGS_((int,Arg *)))
 VFUNC(char *,LangLibraryDir,V_LangLibraryDir,_ANSI_ARGS_((void)))
-#endif /* #ifndef LangLibraryDir */
-
-#ifndef LangMethodCall
-VFUNC(int,LangMethodCall,V_LangMethodCall,_ANSI_ARGS_((Tcl_Interp *,Tcl_Obj *,char *,int result,int argc,...)))
-#endif /* #ifndef LangMethodCall */
-
-#ifndef LangNull
-VFUNC(int,LangNull,V_LangNull,_ANSI_ARGS_((Tcl_Obj *)))
-#endif /* #ifndef LangNull */
-
-#ifndef LangSaveVar
-VFUNC(int,LangSaveVar,V_LangSaveVar,_ANSI_ARGS_((Tcl_Interp *,Tcl_Obj *,Var *,int type)))
-#endif /* #ifndef LangSaveVar */
-
-#ifndef LangSetDefault
-VFUNC(void,LangSetDefault,V_LangSetDefault,_ANSI_ARGS_((Tcl_Obj **,CONST char *)))
-#endif /* #ifndef LangSetDefault */
-
-#ifndef LangSetDouble
-VFUNC(void,LangSetDouble,V_LangSetDouble,_ANSI_ARGS_((Tcl_Obj **,double)))
-#endif /* #ifndef LangSetDouble */
-
-#ifndef LangSetInt
-VFUNC(void,LangSetInt,V_LangSetInt,_ANSI_ARGS_((Tcl_Obj **,int)))
-#endif /* #ifndef LangSetInt */
-
-#ifndef LangSetObj
-VFUNC(void,LangSetObj,V_LangSetObj,_ANSI_ARGS_((Tcl_Obj **,Tcl_Obj *)))
-#endif /* #ifndef LangSetObj */
-
-#ifndef LangSetString
-VFUNC(void,LangSetString,V_LangSetString,_ANSI_ARGS_((Tcl_Obj **,CONST char *)))
-#endif /* #ifndef LangSetString */
-
-#ifndef LangSetVar
-VFUNC(void,LangSetVar,V_LangSetVar,_ANSI_ARGS_((Tcl_Obj **,Var)))
-#endif /* #ifndef LangSetVar */
-
-#ifndef Lang_BuildInImages
+VFUNC(LangCallback *,LangMakeCallback,V_LangMakeCallback,_ANSI_ARGS_((Arg)))
+VFUNC(char *,LangMergeString,V_LangMergeString,_ANSI_ARGS_((int argc, Arg *args)))
+VFUNC(int,LangMethodCall,V_LangMethodCall,_ANSI_ARGS_((Tcl_Interp *,Arg,char *,int result,int argc,...)))
+VFUNC(int,LangNull,V_LangNull,_ANSI_ARGS_((Arg)))
+VFUNC(void,LangRestoreResult,V_LangRestoreResult,_ANSI_ARGS_((Tcl_Interp **,LangResultSave *)))
+VFUNC(LangResultSave *,LangSaveResult,V_LangSaveResult,_ANSI_ARGS_((Tcl_Interp **)))
+VFUNC(int,LangSaveVar,V_LangSaveVar,_ANSI_ARGS_((Tcl_Interp *,Arg,Var *,int type)))
+VFUNC(void,LangSetArg,V_LangSetArg,_ANSI_ARGS_((Arg *,Arg)))
+VFUNC(void,LangSetDefault,V_LangSetDefault,_ANSI_ARGS_((Arg *,char *)))
+VFUNC(void,LangSetDouble,V_LangSetDouble,_ANSI_ARGS_((Arg *,double)))
+VFUNC(void,LangSetInt,V_LangSetInt,_ANSI_ARGS_((Arg *,int)))
+VFUNC(void,LangSetString,V_LangSetString,_ANSI_ARGS_((Arg *,char *)))
+VFUNC(char *,LangString,V_LangString,_ANSI_ARGS_((Arg)))
+VFUNC(Arg,LangStringArg,V_LangStringArg,_ANSI_ARGS_((char *)))
+VFUNC(int,LangStringMatch,V_LangStringMatch,_ANSI_ARGS_((char *string, Arg match)))
+VFUNC(Arg,LangVarArg,V_LangVarArg,_ANSI_ARGS_((Var)))
 VFUNC(void,Lang_BuildInImages,V_Lang_BuildInImages,_ANSI_ARGS_((void)))
-#endif /* #ifndef Lang_BuildInImages */
-
-#ifndef Lang_CallWithArgs
-VFUNC(int,Lang_CallWithArgs,V_Lang_CallWithArgs,_ANSI_ARGS_((Tcl_Interp *interp,
-					char *sub, int argc, Tcl_Obj *CONST *argv)))
-#endif /* #ifndef Lang_CallWithArgs */
-
-#ifndef Lang_CreateEncoding
-VFUNC(Tcl_Encoding,Lang_CreateEncoding,V_Lang_CreateEncoding,_ANSI_ARGS_((
-    CONST char *encodingName,
-    Tcl_EncodingConvertProc *toUtfProc,
-    Tcl_EncodingConvertProc *fromUtfProc,
-    Tcl_EncodingFreeProc *freeProc,
-    ClientData clientData,
-    int nullSize)))
-#endif /* #ifndef Lang_CreateEncoding */
-
-#ifndef Lang_CreateObject
 VFUNC(Tcl_Command,Lang_CreateObject,V_Lang_CreateObject,_ANSI_ARGS_((Tcl_Interp *interp,
-			    char *cmdName, Tcl_ObjCmdProc *proc,
+			    char *cmdName, Tcl_CmdProc *proc,
 			    ClientData clientData,
 			    Tcl_CmdDeleteProc *deleteProc)))
-#endif /* #ifndef Lang_CreateObject */
-
-#ifndef Lang_DeleteObject
 VFUNC(void,Lang_DeleteObject,V_Lang_DeleteObject,_ANSI_ARGS_((Tcl_Interp *,Tcl_Command)))
-#endif /* #ifndef Lang_DeleteObject */
-
-#ifndef Lang_FreeRegExp
-VFUNC(void,Lang_FreeRegExp,V_Lang_FreeRegExp,_ANSI_ARGS_((Tcl_RegExp re)))
-#endif /* #ifndef Lang_FreeRegExp */
-
-#ifndef Lang_GetErrorCode
+VFUNC(void,Lang_FreeRegExp,V_Lang_FreeRegExp,_ANSI_ARGS_((Tcl_RegExp reg_exp)))
 VFUNC(char *,Lang_GetErrorCode,V_Lang_GetErrorCode,_ANSI_ARGS_((Tcl_Interp *interp)))
-#endif /* #ifndef Lang_GetErrorCode */
-
-#ifndef Lang_GetErrorInfo
 VFUNC(char *,Lang_GetErrorInfo,V_Lang_GetErrorInfo,_ANSI_ARGS_((Tcl_Interp *interp)))
-#endif /* #ifndef Lang_GetErrorInfo */
-
-#ifndef Lang_SetBinaryResult
-VFUNC(void,Lang_SetBinaryResult,V_Lang_SetBinaryResult,_ANSI_ARGS_((Tcl_Interp *interp,
-			    char *string, int len, Tcl_FreeProc *freeProc)))
-#endif /* #ifndef Lang_SetBinaryResult */
-
-#ifndef Lang_SetErrorCode
+VFUNC(Tcl_RegExp,Lang_RegExpCompile,V_Lang_RegExpCompile,_ANSI_ARGS_((Tcl_Interp *interp,
+			    char *string, int fold)))
+VFUNC(int,Lang_RegExpExec,V_Lang_RegExpExec,_ANSI_ARGS_((Tcl_Interp *interp,
+			    Tcl_RegExp reg_exp, char *string, char *start)))
 VFUNC(void,Lang_SetErrorCode,V_Lang_SetErrorCode,_ANSI_ARGS_((Tcl_Interp *interp,char *code)))
-#endif /* #ifndef Lang_SetErrorCode */
-
-#ifndef Lang_TraceVar
-VFUNC(int,Lang_TraceVar,V_Lang_TraceVar,_ANSI_ARGS_((Tcl_Interp * interp,
-				Tcl_Obj *varRef, int flags,
-				Lang_VarTraceProc * proc,
-				ClientData clientData)))
-#endif /* #ifndef Lang_TraceVar */
-
-#ifndef Lang_UntraceVar
-VFUNC(void,Lang_UntraceVar,V_Lang_UntraceVar,_ANSI_ARGS_((Tcl_Interp * interp,
-				Tcl_Obj * varRef, int flags,
-				Lang_VarTraceProc * proc,
-				ClientData clientData)))
-#endif /* #ifndef Lang_UntraceVar */
-
-#ifndef TclObjGetType
-VFUNC(Tcl_ObjType *,TclObjGetType,V_TclObjGetType,_ANSI_ARGS_((Tcl_Obj *objPtr)))
-#endif /* #ifndef TclObjGetType */
-
-#ifndef TclObjInternal
-VFUNC(Tcl_InternalRep *,TclObjInternal,V_TclObjInternal,_ANSI_ARGS_((Tcl_Obj *objPtr)))
-#endif /* #ifndef TclObjInternal */
-
-#ifndef TclObjLength
-VFUNC(int,TclObjLength,V_TclObjLength,_ANSI_ARGS_((Tcl_Obj *objPtr)))
-#endif /* #ifndef TclObjLength */
-
-#ifndef TclObjSetType
-VFUNC(void,TclObjSetType,V_TclObjSetType,_ANSI_ARGS_((Tcl_Obj *objPtr,Tcl_ObjType *newType)))
-#endif /* #ifndef TclObjSetType */
-
-#ifndef Tcl_AfterObjCmd
-VFUNC(int,Tcl_AfterObjCmd,V_Tcl_AfterObjCmd,_ANSI_ARGS_((ClientData clientData,
-			    Tcl_Interp *interp, int objc, Tcl_Obj *CONST objv[])))
-#endif /* #ifndef Tcl_AfterObjCmd */
-
-#ifndef Tcl_DStringLength
-VFUNC(int,Tcl_DStringLength,V_Tcl_DStringLength,_ANSI_ARGS_((Tcl_DString *dString)))
-#endif /* #ifndef Tcl_DStringLength */
-
-#ifndef Tcl_DStringValue
-VFUNC(char *,Tcl_DStringValue,V_Tcl_DStringValue,_ANSI_ARGS_((Tcl_DString *dString)))
-#endif /* #ifndef Tcl_DStringValue */
-
-#ifndef Tcl_DecrRefCount
-VFUNC(void,Tcl_DecrRefCount,V_Tcl_DecrRefCount,_ANSI_ARGS_((Tcl_Obj *objPtr)))
-#endif /* #ifndef Tcl_DecrRefCount */
-
-#ifndef Tcl_DoubleResults
+VFUNC(int,Lang_SplitList,V_Lang_SplitList,_ANSI_ARGS_((Tcl_Interp *interp,
+			    Arg list, int *argcPtr, Arg **argsPtr, LangFreeProc **)))
+VFUNC(void *,TclCalloc,V_TclCalloc,_ANSI_ARGS_((size_t n,size_t s)))
+VFUNC(int,TclOpen,V_TclOpen,_ANSI_ARGS_((char *path, int oflag, int mode)))
+VFUNC(int,TclRead,V_TclRead,_ANSI_ARGS_((int fd, VOID *buf, size_t numBytes)))
+VFUNC(int,TclWrite,V_TclWrite,_ANSI_ARGS_((int fd, VOID *buf, size_t numBytes)))
+VFUNC(void,Tcl_AddErrorInfo,V_Tcl_AddErrorInfo,_ANSI_ARGS_((Tcl_Interp *interp,
+			    char *message)))
+VFUNC(void,Tcl_AppendArg,V_Tcl_AppendArg,_ANSI_ARGS_((Tcl_Interp *interp, Arg)))
+VFUNC(void,Tcl_AppendElement,V_Tcl_AppendElement,_ANSI_ARGS_((Tcl_Interp *interp,
+			    char *string)))
+VFUNC(void,Tcl_AppendResult,V_Tcl_AppendResult,_ANSI_ARGS_((Tcl_Interp *interp,...)))
+VFUNC(void,Tcl_ArgResult,V_Tcl_ArgResult,_ANSI_ARGS_((Tcl_Interp *interp, Arg)))
+VFUNC(void,Tcl_CallWhenDeleted,V_Tcl_CallWhenDeleted,_ANSI_ARGS_((Tcl_Interp *interp,
+			    Tcl_InterpDeleteProc *proc,
+			    ClientData clientData)))
+VFUNC(Arg,Tcl_Concat,V_Tcl_Concat,_ANSI_ARGS_((int argc, Arg *argv)))
+VFUNC(Tcl_Command,Tcl_CreateCommand,V_Tcl_CreateCommand,_ANSI_ARGS_((Tcl_Interp *interp,
+			    char *cmdName, Tcl_CmdProc *proc,
+			    ClientData clientData,
+			    Tcl_CmdDeleteProc *deleteProc)))
+VFUNC(Tcl_Interp *,Tcl_CreateInterp,V_Tcl_CreateInterp,_ANSI_ARGS_((void)))
+VFUNC(char *,Tcl_DStringAppend,V_Tcl_DStringAppend,_ANSI_ARGS_((Tcl_DString *dsPtr,
+			    char *string, int length)))
+VFUNC(void,Tcl_DStringFree,V_Tcl_DStringFree,_ANSI_ARGS_((Tcl_DString *dsPtr)))
+VFUNC(void,Tcl_DStringGetResult,V_Tcl_DStringGetResult,_ANSI_ARGS_((Tcl_Interp *interp,
+			    Tcl_DString *dsPtr)))
+VFUNC(void,Tcl_DStringInit,V_Tcl_DStringInit,_ANSI_ARGS_((Tcl_DString *dsPtr)))
+VFUNC(void,Tcl_DStringResult,V_Tcl_DStringResult,_ANSI_ARGS_((Tcl_Interp *interp,
+			    Tcl_DString *dsPtr)))
+VFUNC(void,Tcl_DStringSetLength,V_Tcl_DStringSetLength,_ANSI_ARGS_((Tcl_DString *dsPtr,
+			    int length)))
+VFUNC(void,Tcl_DeleteHashEntry,V_Tcl_DeleteHashEntry,_ANSI_ARGS_((
+			    Tcl_HashEntry *entryPtr)))
+VFUNC(void,Tcl_DeleteHashTable,V_Tcl_DeleteHashTable,_ANSI_ARGS_((
+			    Tcl_HashTable *tablePtr)))
+VFUNC(void,Tcl_DeleteInterp,V_Tcl_DeleteInterp,_ANSI_ARGS_((Tcl_Interp *interp)))
 VFUNC(void,Tcl_DoubleResults,V_Tcl_DoubleResults,_ANSI_ARGS_((Tcl_Interp *interp,int,int,...)))
-#endif /* #ifndef Tcl_DoubleResults */
-
-#ifndef Tcl_IncrRefCount
-VFUNC(void,Tcl_IncrRefCount,V_Tcl_IncrRefCount,_ANSI_ARGS_((Tcl_Obj *objPtr)))
-#endif /* #ifndef Tcl_IncrRefCount */
-
-#ifndef Tcl_IntResults
+VFUNC(Tcl_HashEntry *,Tcl_FirstHashEntry,V_Tcl_FirstHashEntry,_ANSI_ARGS_((
+			    Tcl_HashTable *tablePtr,
+			    Tcl_HashSearch *searchPtr)))
+VFUNC(int,Tcl_GetBoolean,V_Tcl_GetBoolean,_ANSI_ARGS_((Tcl_Interp *interp,
+			    Arg string, int *boolPtr)))
+VFUNC(int,Tcl_GetDouble,V_Tcl_GetDouble,_ANSI_ARGS_((Tcl_Interp *interp,
+			    Arg string, double *doublePtr)))
+VFUNC(int,Tcl_GetInt,V_Tcl_GetInt,_ANSI_ARGS_((Tcl_Interp *interp,
+			    Arg string, int *intPtr)))
+VFUNC(int,Tcl_GetOpenFile,V_Tcl_GetOpenFile,_ANSI_ARGS_((Tcl_Interp *interp,
+			    Arg string, int doWrite, int checkUsage,
+			    FILE **filePtr)))
+VFUNC(char *,Tcl_GetResult,V_Tcl_GetResult,_ANSI_ARGS_((Tcl_Interp *)))
+VFUNC(Arg,Tcl_GetVar,V_Tcl_GetVar,_ANSI_ARGS_((Tcl_Interp *interp,
+			    Var varName, int flags)))
+VFUNC(Arg,Tcl_GetVar2,V_Tcl_GetVar2,_ANSI_ARGS_((Tcl_Interp *interp,
+			    Var part1, char *part2, int flags)))
+VFUNC(char *,Tcl_HashStats,V_Tcl_HashStats,_ANSI_ARGS_((Tcl_HashTable *tablePtr)))
+VFUNC(void,Tcl_InitHashTable,V_Tcl_InitHashTable,_ANSI_ARGS_((Tcl_HashTable *tablePtr,
+			    int keyType)))
 VFUNC(void,Tcl_IntResults,V_Tcl_IntResults,_ANSI_ARGS_((Tcl_Interp *interp,int,int,...)))
-#endif /* #ifndef Tcl_IntResults */
-
-#ifndef Tcl_IsShared
-VFUNC(int,Tcl_IsShared,V_Tcl_IsShared,_ANSI_ARGS_((Tcl_Obj *objPtr)))
-#endif /* #ifndef Tcl_IsShared */
-
-#ifndef Tcl_SprintfResult
+VFUNC(int,Tcl_LinkVar,V_Tcl_LinkVar,_ANSI_ARGS_((Tcl_Interp *interp,
+			    char *varName, char *addr, int type)))
+VFUNC(Arg,Tcl_Merge,V_Tcl_Merge,_ANSI_ARGS_((int argc, Arg *args)))
+VFUNC(Tcl_HashEntry *,Tcl_NextHashEntry,V_Tcl_NextHashEntry,_ANSI_ARGS_((
+			    Tcl_HashSearch *searchPtr)))
+VFUNC(void,Tcl_Panic,V_Tcl_Panic,_ANSI_ARGS_((char *,...)))
+VFUNC(char *,Tcl_PosixError,V_Tcl_PosixError,_ANSI_ARGS_((Tcl_Interp *interp)))
+VFUNC(void,Tcl_RegExpRange,V_Tcl_RegExpRange,_ANSI_ARGS_((Tcl_RegExp reg_exp,
+			    int index, char **startPtr, char **endPtr)))
+VFUNC(void,Tcl_ResetResult,V_Tcl_ResetResult,_ANSI_ARGS_((Tcl_Interp *interp)))
+VFUNC(Arg,Tcl_ResultArg,V_Tcl_ResultArg,_ANSI_ARGS_((Tcl_Interp *interp)))
+VFUNC(void,Tcl_SetResult,V_Tcl_SetResult,_ANSI_ARGS_((Tcl_Interp *interp,
+			    char *string, Tcl_FreeProc *freeProc)))
+VFUNC(char *,Tcl_SetVar,V_Tcl_SetVar,_ANSI_ARGS_((Tcl_Interp *interp,
+			    Var varName, char *newValue, int flags)))
+VFUNC(char *,Tcl_SetVar2,V_Tcl_SetVar2,_ANSI_ARGS_((Tcl_Interp *interp,
+			    Var part1, char *part2, char *newValue,
+			    int flags)))
+VFUNC(char *,Tcl_SetVarArg,V_Tcl_SetVarArg,_ANSI_ARGS_((Tcl_Interp *interp,
+			    Var varName, Arg newValue, int flags)))
 VFUNC(void,Tcl_SprintfResult,V_Tcl_SprintfResult,_ANSI_ARGS_((Tcl_Interp *,char *,...)))
-#endif /* #ifndef Tcl_SprintfResult */
-
-#ifndef Tk_PropertyCmd
-VFUNC(int,Tk_PropertyCmd,V_Tk_PropertyCmd,_ANSI_ARGS_((ClientData clientData,
-			    Tcl_Interp *interp, int argc, Tcl_Obj **objv)))
-#endif /* #ifndef Tk_PropertyCmd */
-
+VFUNC(char *,Tcl_TildeSubst,V_Tcl_TildeSubst,_ANSI_ARGS_((Tcl_Interp *interp,
+			    char *name, Tcl_DString *bufferPtr)))
+VFUNC(int,Tcl_TraceVar,V_Tcl_TraceVar,_ANSI_ARGS_((Tcl_Interp *interp,
+			    Var varName, int flags, Tcl_VarTraceProc *proc,
+			    ClientData clientData)))
+VFUNC(int,Tcl_TraceVar2,V_Tcl_TraceVar2,_ANSI_ARGS_((Tcl_Interp *interp,
+			    Var part1, char *part2, int flags,
+			    Tcl_VarTraceProc *proc, ClientData clientData)))
+VFUNC(void,Tcl_UnlinkVar,V_Tcl_UnlinkVar,_ANSI_ARGS_((Tcl_Interp *interp,
+			    char *varName)))
+VFUNC(void,Tcl_UntraceVar,V_Tcl_UntraceVar,_ANSI_ARGS_((Tcl_Interp *interp,
+			    Var varName, int flags, Tcl_VarTraceProc *proc,
+			    ClientData clientData)))
+VFUNC(void,Tcl_UntraceVar2,V_Tcl_UntraceVar2,_ANSI_ARGS_((Tcl_Interp *interp,
+			    Var part1, char *part2, int flags,
+			    Tcl_VarTraceProc *proc, ClientData clientData)))
+VFUNC(int,TkReadDataPending,V_TkReadDataPending,_ANSI_ARGS_((FILE *f)))
 #endif /* _LANG */

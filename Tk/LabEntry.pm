@@ -1,18 +1,12 @@
-# Copyright (c) 1995-2003 Nick Ing-Simmons. All rights reserved.
-# This program is free software; you can redistribute it and/or
-# modify it under the same terms as Perl itself.
+# Class LabeledEntry
 
 package Tk::LabEntry;
+require Tk::Frame;
+@ISA = qw(Tk::Frame);
 
-use vars qw($VERSION);
-$VERSION = '4.006'; # $Id: //depot/Tkutf8/Tk/LabEntry.pm#6 $
+Tk::Widget->Construct('LabEntry');
 
-use base  qw(Tk::Frame);
-use Tk::widgets qw(Frame Label Entry);
-
-Construct Tk::Widget 'LabEntry';
-
-sub Populate
+sub Populate 
 {
  require Tk::Entry;
  # LabeledEntry constructor.
@@ -26,6 +20,6 @@ sub Populate
  $cw->ConfigSpecs(DEFAULT => [$e]);
  $cw->Delegates(DEFAULT => $e);
  $cw->AddScrollbars($e) if (exists $args->{-scrollbars});
-}
+} 
 
 1;

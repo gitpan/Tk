@@ -1,7 +1,7 @@
-#!/usr/bin/env perl
+#!/usr/local/bin/perl -w
 #
 # This script demonstrates the various widgets provided by Tk, along with many of the features of the Tk toolkit.  This file
-# only contains code to generate the main window for the application, which invokes individual demonstrations.  The code for
+# only contains code to generate the main window for the application, which invokes individual demonstrations.  The code for 
 # the actual demonstrations is contained in separate ".pl" files in the directory "widget_lib", which are auto-loaded by Perl
 # when they are needed.  To find the code for a particular demo, look below for the procedure that's invoked by its menu entry,
 # then grep for the file that contains the procedure definition.
@@ -46,7 +46,7 @@ sub insert_with_tags {
     # text	Text to insert (it's inserted at the "insert" mark)
     # args	One or more tags to apply to text.  If this is empty then all tags are removed from the text.
 
-    my($w, $text, @args) = @_;
+    my($w, $text, @args) = @ARG;
     my($tag, $i, $start);
 
     $start = $w->index('insert');
@@ -65,7 +65,7 @@ sub lsearch {
 
     # Search the list using the supplied regular expression and return it's ordinal, or -1 if not found.
 
-    my($regexp, @list) = @_;
+    my($regexp, @list) = @ARG;
     my($i);
 
     for ($i=0; $i<=$#list; $i++) {
@@ -77,11 +77,11 @@ sub lsearch {
 
 
 sub mkmb {
-
+	
     # Make a Menubutton widget; note that the menu is automatically created.  We maintain a list of the Menubutton references
     # since some callers need to refer to the Menubutton, as well as to suppress stray name warnings with Perl -w.
 
-    my($mb_label, $mb_label_underline, $mb_list_ref) = @_;
+    my($mb_label, $mb_label_underline, $mb_list_ref) = @ARG;
 
     my $mb = $menu->Menubutton(-text => $mb_label, -underline => $mb_label_underline);
     foreach $mb_list (@{$mb_list_ref}) {

@@ -1,84 +1,92 @@
 # menus.pl
 
-use subs qw/menus_error/;
-use vars qw/$TOP/;
+sub menus_error;
 
 sub menus {
 
     # This demonstration script creates a window with a bunch of menus
-    # and cascaded menus using a menubar.  A <<MenuSelect>> virtual event
-    # tracks the active menu item.
+    # and cascaded menus.
 
-    my ($demo) = @_;
-    $TOP = $MW->WidgetDemo(
-        -name     => $demo,
-        -text     => ['', -wraplength => '5i'],	
-        -title    => 'Menu Demonstration',
-        -iconname => 'menus',
+    my ($demo) = @ARG;
+
+    $MENUS->destroy if Exists($MENUS);
+    $MENUS = $MW->Toplevel;
+    my $w = $MENUS;
+    dpos $w;
+    $w->title('Menu Demonstration');
+    $w->iconname('menus');
+
+    my $w_menu = $w->Frame(-relief => 'raised', -borderwidth => 2);
+    $w_menu->pack(-fill => 'x');
+
+    my $w_msg = $w->Label(
+        -font       => $FONT,
+        -wraplength => '4i',
+        -justify    => 'left',
+        -text       => 'This window contains a collection of menus and cascaded menus.  You can post a menu from the keyboard by typing Alt+x, where "x" is the character underlined on the menu.  You can then traverse among the menus using the arrow keys.  When a menu is posted, you can invoke the current entry by typing space, or you can invoke any entry by typing its underlined character.  If a menu entry has an accelerator, you can invoke the entry without posting the menu just by typing the accelerator.'
     );
+    $w_msg->pack;
 
-    my $ws = $TOP->windowingsystem;
+    my $w_buttons = $w->Frame;
+    $w_buttons->pack(qw(-side bottom -fill x -pady 2m));
+    my $w_dismiss = $w_buttons->Button(
+        -text    => 'Dismiss',
+        -command => [$w => 'destroy'],
+    );
+    $w_dismiss->pack(qw(-side left -expand 1));
+    my $w_see = $w_buttons->Button(
+        -text    => 'See Code',
+        -command => [\&see_code, $demo],
+    );
+    $w_see->pack(qw(-side left -expand 1));
 
-    my $text = ($ws eq 'classic' or $ws eq 'aqua') ?
-        'This window contains a menubar with cascaded menus.  You can invoke entries with an accelerator by typing Command+x, where "x" is the character next to the command key symbol. The rightmost menu can be torn off into a palette by dragging outside of its bounds and releasing the mouse.' :
-        'This window contains a menubar with cascaded menus.  You can post a menu from the keyboard by typing Alt+x, where "x" is the character underlined on the menu.  You can then traverse among the menus using the arrow keys.  When a menu is posted, you can invoke the current entry by typing space, or you can invoke any entry by typing its underlined character.  If a menu entry has an accelerator, you can invoke the entry without posting the menu just by typing the accelerator. The rightmost menu can be torn off into a palette by selecting the first item in the menu.';
-
-    $TOP->configure(-text => $text);
-
-    my $toplevel = $TOP->toplevel; # get $TOP's Toplevel widget reference
-    my $menubar = $toplevel->Menu(-type => 'menubar');
-    $toplevel->configure(-menu => $menubar);
-
-    my $modifier;
-    if ( $ws eq 'classic' or $ws eq 'aqua') {
-	$modifier = 'Command';
-    } elsif ($Tk::platform eq 'windows') {
-	$modifier = 'Control';
-    } else {
-	$modifier = 'Meta';
-    }
- 
-    my $f = $menubar->cascade(-label => '~File', -tearoff => 0);
-    $f->command(-label => 'Open ...',    -command => [\&menus_error, 'Open'],
-	        -image => $toplevel->Getimage("openfile"), -compound => "left");
-    $f->command(-label => 'New',         -command => [\&menus_error, 'New'],
-	        -image => $toplevel->Getimage("file"), -compound => "left");
-    $f->command(-label => 'Save',        -command => [\&menus_error, 'Save']);
+    my $f = $w_menu->Menubutton(-text => 'File', -underline => 0);
+    $f->command(-label => 'Open ...',    -command => [\&menus_error, 'Open']);
+    $f->command(-label => 'New',         -command => [\&menus_error, 'New']);
+    $f->command(-label  => 'Save',       -command => [\&menus_error, 'Save']);
     $f->command(-label => 'Save As ...', -command => [\&menus_error, 'Save As']);
     $f->separator;
     $f->command(-label => 'Setup ...',   -command => [\&menus_error, 'Setup']);
     $f->command(-label => 'Print ...',   -command => [\&menus_error, 'Print']);
     $f->separator;
-    $f->command(-label => 'Quit',        -command => [$TOP => 'bell']);
+    $f->command(-label => 'Quit',        -command => [$w => 'destroy']);
 
-    my $b = $menubar->cascade(-label => '~Basic', -tearoff => 0);
+    my $b = $w_menu->Menubutton(-text => 'Basic', -underline => 0);
     $b->command(-label => 'Long entry that does nothing');
     my $label;
-    foreach $label (qw/A B C D E F/) {
+    foreach $label (qw(a b c d e f g)) {
 	$b->command(
              -label => "Print letter \"$label\"",
              -underline => 14,
-	     -accelerator => "$modifier+$label",
+	     -accelerator => "Meta+$label",
              -command => sub {print "$label\n"},
         );
-	$TOP->bind("<$modifier-${label}>" => sub {print "$label\n"});
+	$b->bind("<Meta-${label}>" => sub {print "$label\n"});
     }
-    my $c = $menubar->cascade(-label => '~Cascades', -tearoff => 0);
+
+    my $menu_cb = 'Check buttons';
+    my $menu_rb = 'Radio buttons';
+    my $c = $w_menu->Menubutton(-text => 'Cascades', -underline => 0);
     $c->command(
-        -label       => 'Print hello',
+        -label       => 'Print hello', 
         -command     => sub {print "Hello\n"},
-	-accelerator => "$modifier+H",
+	-accelerator => 'Control+a',
         -underline   => 6,
     );
-    $TOP->bind("<$modifier-h>" => sub {print "Hello\n"});
+    $w->bind('<Control-a>' => sub {print "Hello\n"});
     $c->command(
-        -label       => 'Print goodbye',
+        -label       => 'Print goodbye', 
         -command     => sub {print "Goodbye\n"},
-	-accelerator => "$modifier+G",
+	-accelerator => 'Control+b', 
         -underline   => 6,
     );
-    $TOP->bind("<$modifier-g>" => sub {print "Goodbye\n"});
-    my $cc = $c->cascade(-label => '~Check buttons', -tearoff => 0);
+    $w->bind('<Control-b>' => sub {print "Goodbye\n"});
+    $c->cascade(-label => $menu_cb, -underline => 0);
+    $c->cascade(-label => $menu_rb, -underline => 0);
+
+    my $cm = $c->cget(-menu); 
+    my $cc = $cm->Menu;
+    $c->entryconfigure($menu_cb, -menu => $cc);
 
     $cc->checkbutton(-label => 'Oil checked', -variable => \$OIL);
     $cc->checkbutton(-label => 'Transmission checked', -variable => \$TRANS);
@@ -95,13 +103,14 @@ sub menus {
                                       ],
                     ],
     );
-    my $cc_menu = $cc->cget(-menu);
-    $cc_menu->invoke(1);
-    $cc_menu->invoke(3);
+    $cc->invoke(1);
+    $cc->invoke(3);
 
-    my $rc = $c->cascade(-label => '~Radio buttons', -tearoff => 0);
-
-    foreach $label (qw/10 14 18 24 32/) {
+    my $rm = $c->cget(-menu); 
+    my $rc = $rm->Menu;
+    $c->entryconfigure($menu_rb, -menu => $rc);
+    my($label);
+    foreach $label (qw(10 14 18 24 32)) {
 	$rc->radiobutton(
             -label    => "$label point",
             -variable => \$POINT_SIZE,
@@ -109,7 +118,7 @@ sub menus {
         );
     }
     $rc->separator;
-    foreach $label (qw/Roman Bold Italic/) {
+    foreach $label (qw(Roman Bold Italic)) {
 	$rc->radiobutton(
             -label    => $label,
             -variable => \$FONT_STYLE,
@@ -125,70 +134,58 @@ sub menus {
                                      ],
                     ],
     );
-    my $rc_menu = $rc->cget(-menu);
-    $rc_menu->invoke(1);
-    $rc_menu->invoke(7);
+    $rc->invoke(1);
+    $rc->invoke(7);
 
-    my $i = $menubar->cascade(-label => '~Icons', -tearoff => 0);
+    my $i = $w_menu->Menubutton(-text => 'Icons', -underline => 0);
     $i->command(
         -bitmap => '@'.Tk->findINC('demos/images/pattern'),
-	-command => sub {
-	    $TOP->messageBox(
-			     -title => 'Bitmap Menu Entry', 
-			     -message => 'The menu entry you invoked displays a bitmap rather than a text string.  Other than this, it is just like any other menu entry.', 
-			     -type => 'ok'),
-	    },
-	-hidemargin => 1,
+	-command => [$DIALOG_ICON => 'Show'],
     );
-    foreach $label (qw/info questhead error/) {
+    foreach $label (qw(info questhead error)) {
 	$i->command(
             -bitmap  => $label,
             -command => sub {print "You invoked the \"$label\" bitmap\n"},
-            -hidemargin => 1,
         );
     }
-    $i->cget(-menu)->entryconfigure(2, -columnbreak => 1);
 
-    my $m = $menubar->cascade(-label => '~More', -tearoff => 0);
+    my $m = $w_menu->Menubutton(-text => 'More', -underline => 0);
     foreach $label ('An entry', 'Another entry', 'Does nothing',
 		    'Does almost nothing', 'Make life meaningful') {
-	$m->command(
-            -label   => $label,
+	$m->command( 
+            -label   => $label, 
 	    -command => sub {print "You invoked \"$label\"\n"},
         );
     }
 
-    my $k = $menubar->cascade(-label => 'C~olors');
-    foreach $label (qw/red orange yellow green blue/) {
+    my $k = $w_menu->Menubutton(-text => 'Colors', -underline => 1);
+    foreach $label (qw(red orange yellow green blue)) {
 	$k->command(
             -label      => $label,
             -background => $label,
 	    -command => sub {print "You invoked \"$label\"\n"},
         );
     }
-
-    my $status_bar;
-    $TOP->Label(
-        qw/-relief sunken -borderwidth 1 -anchor w/,
-        -font => 'Helvetica 10', -textvariable => \$status_bar)->
-	pack(qw/-padx 2 -pady 2 -expand yes -fill both/);
-    $menubar->bind('<<MenuSelect>>' => sub {
-	$status_bar = undef;
-	$status_bar = $_[0]->entrycget('active', -label);
-	$TOP->idletasks;
-    });
+    
+    $f->pack(-side=>'left');
+    $b->pack(-side=>'left');
+    $c->pack(-side=>'left');
+    $i->pack(-side=>'left');
+    $m->pack(-side=>'left');
+    $k->pack(-side=>'left');
 
 } # end menus
 
 sub menus_error {
 
-    # Generate a background error, which may even be displayed in a window if
-    # using ErrorDialog.
 
-    my($msg) = @_;
+    # Generate a background error, which may even be displayed in a window if
+    # using ErrorDialog. 
+
+    my($msg) = @ARG;
 
     $msg = "This is just a demo: no action has been defined for \"$msg\".";
-    $TOP->BackTrace($msg);
+    $MENUS->BackTrace($msg);
 
 } # end menus_error
 

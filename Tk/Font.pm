@@ -1,162 +1,218 @@
+#
+
 package Tk::Font;
-use vars qw($VERSION);
-$VERSION = '4.004'; # $Id: //depot/Tkutf8/Tk/Font.pm#4 $
+
+=head1 NAME
+
+Tk::Font - a class for finding X Fonts
+
+=head1 SYNOPSIS
+
+ use Tk::Font;
+
+ $font = $widget->Font(foundry => 'adobe',
+                       family  => 'times',
+                       point   => 120
+                      );
+
+ $font = $widget->Font('*-courier-medium-r-normal-*-*');
+
+=head1 DESCRIPTION
+
+   This module can be use to interrogate the X server what fonts are
+   avaliable.
+
+=head1 METHODS
+
+=head2 Foundry( [ $val ] )
+
+=head2 Family( [ $val ] )
+
+=head2 Weight( [ $val ] )
+
+=head2 Slant( [ $val ] )
+
+=head2 Swidth( [ $val ] )
+
+=head2 Adstyle( [ $val ] )
+
+=head2 Pixel( [ $val ] )
+
+=head2 Point( [ $val ] )
+
+=head2 Xres( [ $val ] )
+
+=head2 Yres( [ $val ] )
+
+=head2 Space( [ $val ] )
+
+=head2 Avgwidth( [ $val ] )
+
+=head2 Registry( [ $val ] )
+
+=head2 Encoding( [ $val ] )
+
+Set the given field in the font name to C<$val> if given and return the current
+or previous value
+
+=head2 Name( [ $max ] )
+
+In a list context it returns a list of all font names that match the
+fields given. It will return a maximum of C<$max> names, or 128 if
+$max is not given.
+
+In a scalar contex it returns the first matching name or undef
+
+=head2 Clone( [ key => value, [ ...]] )
+
+Create a duplicate of the curent font object and modify the given fields
+
+=head1 AUTHOR
+
+Graham Barr <Graham.Barr@tiuk.ti.com>
+
+=head1 HISTORY
+
+11-Jan-96 Initial version
+
+=head1 COPYRIGHT
+
+Copyright (c) 1995 Graham Barr. All rights reserved. This program is free
+software; you can redistribute it and/or modify it under the same terms
+as Perl itself.
+
+=cut
+
 require Tk::Widget;
+require Tk::Xlib;
 use strict;
-use Carp;
-use overload '""' => 'as_string';
-sub as_string { return ${$_[0]} }
 
-*MainWindow = \&Tk::Widget::MainWindow;
+Tk::Widget->Construct('Font');
 
-foreach my $key (qw(actual metrics measure configure))
- {
-  no strict 'refs';
-  *{$key} = sub { shift->Tk::font($key,@_) };
- }
-
-Construct Tk::Widget 'Font';
-
-my @xfield  = qw(foundry family weight slant swidth adstyle pixel
+my @field = qw(foundry family weight slant swidth adstyle pixel
                point xres yres space avgwidth registry encoding);
-my @tkfield = qw(family size weight slant underline overstrike);
-my %tkfield = map { $_ => "-$_" } @tkfield;
 
-sub _xonly { my $old = '*'; return $old }
+map { eval "sub \u$_ { shift->elem('$_', \@_) }" } @field;
 
-sub Pixel
-{
- my $me  = shift;
- my $old = $me->configure('-size');
- $old = '*' if ($old > 0);
- if (@_)
-  {
-   $me->configure(-size => -$_[0]);
-  }
- return $old;
-}
-
-sub Point
-{
- my $me  = shift;
- my $old = 10*$me->configure('-size');
- $old = '*' if ($old < 0);
- if (@_)
-  {
-   $me->configure(-size => int($_[0]/10));
-  }
- return $old;
-}
-
-foreach my $f (@tkfield,@xfield)
- {
-  no strict 'refs';
-  my $sub = "\u$f";
-  unless (defined &{$sub})
-   {
-    my $key = $tkfield{$f};
-    if (defined $key)
-     {
-      *{$sub} = sub { shift->configure($key,@_) };
-     }
-    else
-     {
-      *{$sub} = \&_xonly;
-     }
-   }
- }
+use overload '""' => \&_string;
 
 sub new
 {
- my $pkg  = shift;
- my $w    = shift;
- my $me;
- if (scalar(@_) == 1)
+ my $pkg = shift;
+ my $w   = shift;
+
+ my %me = ();
+ my $d  = $w->Display;
+
+ local $_;
+
+ if(scalar(@_) == 1)
   {
-   $me = $w->Tk::font('create',@_);
+   my $pattern = shift;
+
+   if($pattern =~ /\A(-[^-]*){14}\Z/)
+    {
+     @me{@field} = split(/-/, substr($pattern,1));
+    }
+   else
+    {
+     $me{Name} = $pattern;
+  
+     if($pattern =~ /^[^-]?-([^-]*-){2,}/)
+      {
+       my $f = $d->XListFonts($pattern,1);
+    
+       if($f && $f =~ /\A(-[^-]*){14}/)
+        {
+         my @f = split(/-/, substr($f,1));
+         my @n = split(/-/, $pattern);
+         my %f = ();
+         my $i = 0;
+    
+         shift @n if($pattern =~ /\A-/);
+  
+         while(@n && @f)
+          {
+           if($n[0] eq '*')
+            {
+             shift @n;
+            }
+           elsif($n[0] eq $f[0])
+            {
+             $f{$field[$i]} = shift @n;
+            }
+           $i++;
+           shift @f;
+          }
+
+         %me = %f
+           unless(@n);
+        }
+      }
+    }
   }
  else
   {
-   croak 'Odd number of args' if @_ & 1;
-   my %attr;
-   while (@_)
-    {
-     my $k = shift;
-     my $v = shift;
-     my $t = (substr($k,0,1) eq '-') ? $k : $tkfield{$k};
-     if (defined $t)
-      {
-       $attr{$t} = $v;
-      }
-     elsif ($k eq 'point')
-      {
-       $attr{'-size'} = -int($v/10+0.5);
-      }
-     elsif ($k eq 'pixel')
-      {
-       $attr{'-size'} = -$v;
-      }
-     else
-      {
-       carp "$k ignored" if $^W;
-      }
-    }
-   $me = $w->Tk::font('create',%attr);
+   %me = @_;
   }
- return bless $me,$pkg;
-}
 
-sub Pattern
-{
- my $me  = shift;
- my @str;
- foreach my $f (@xfield)
-  {
-   my $meth = "\u$f";
-   my $str  = $me->$meth();
-   if ($f eq 'family')
-    {
-     $str =~ s/(?:Times\s+New\s+Roman|New York)/Times/i;
-     $str =~ s/(?:Courier\s+New|Monaco)/Courier/i;
-     $str =~ s/(?:Arial|Geneva)/Helvetica/i;
-    }
-   elsif ($f eq 'slant')
-    {
-     $str = substr($str,0,1);
-    }
-   elsif ($f eq 'weight')
-    {
-     $str = 'medium' if ($str eq 'normal');
-    }
-   push(@str,$str);
-  }
- return join('-', '', @str);
+ map { $me{$_} ||= '*' } @field;
+
+ $me{Display} = $d;
+ $me{MainWin} = $w->MainWindow;
+
+ bless \%me, $pkg;
 }
 
 sub Name
 {
  my $me  = shift;
- return $$me if (!wantarray || ($^O eq 'MSWin32'));
- my $max = shift || 128;
- my $w = $me->MainWindow;
- my $d = $w->Display;
- return $d->XListFonts($me->Pattern,$max);
+ my $max = wantarray ? shift || 128 : 1;
+
+ my $name = $me->{Name} ||
+            join("-", "",@{$me}{@field});
+
+ $me->{Display}->XListFonts($name,$max);
+}
+
+sub _string
+{
+ return shift->Name;
+}
+
+sub elem
+{
+ my $me   = shift;
+ my $elem = shift;
+
+ return undef
+   if(exists $me->{'Name'});
+
+ my $old  = $me->{$elem};
+
+ $me->{$elem} = shift
+   if(@_);
+
+ $old;
 }
 
 sub Clone
 {
  my $me = shift;
- return ref($me)->new($me,$me->actual,@_);
-}
 
-sub ascent
-{
- return shift->metrics('-ascent');
-}
+ $me = bless { %$me }, ref($me);
 
-sub descent
-{
- return shift->metrics('-descent');
+ unless(exists $me->{'Name'})
+  {
+   while(@_)
+    {
+     my $k = shift;
+     my $v = shift || $me->{MainWin}->BackTrace('Tk::Font->Clone( key => value, ... )');
+     $me->{$k} = $v;
+    }
+  }
+
+ $me;
 }
 
 1;

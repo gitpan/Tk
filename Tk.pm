@@ -1,207 +1,166 @@
 #
 # Copyright (c) 1992-1994 The Regents of the University of California.
 # Copyright (c) 1994 Sun Microsystems, Inc.
-# Copyright (c) 1995-2004 Nick Ing-Simmons. All rights reserved.
+# Copyright (c) 1995 Nick Ing-Simmons. All rights reserved.
 # This program is free software; you can redistribute it and/or
-
-# modify it under the same terms as Perl itself, subject
+# modify it under the same terms as Perl itself, subject 
 # to additional disclaimer in Tk/license.terms due to partial
-# derivation from Tk8.0 sources.
+# derivation from Tk4.0 sources.
 #
 package Tk;
-require 5.007;
-use     Tk::Event ();
-use     AutoLoader qw(AUTOLOAD);
-use     DynaLoader;
-use     Cwd();
-use base qw(Exporter DynaLoader);
-use     File::Spec qw();
+require 5.003;
+use     AutoLoader;
+require Exporter;
+require DynaLoader;
+@ISA       = qw(Exporter DynaLoader);
 
-*fileevent = \&Tk::Event::IO::fileevent;
-
-use Encode;
-$Tk::encodeStopOnError = Encode::FB_QUIET();
-$Tk::encodeFallback    = Encode::FB_PERLQQ(); # Encode::FB_DEFAULT();
-
-our %font_encoding = ('jis0208' => 'jis0208-raw',
-                      'jis0212' => 'jis0212-raw',
-                      'ksc5601' => 'ksc5601-raw',
-                      'gb2312'  => 'gb2312-raw',
-                      'unicode' => 'ucs-2le',
-                     );
-
-BEGIN {
- if($^O eq 'cygwin')
-  {
-   require Tk::Config;
-   $Tk::platform = $Tk::Config::win_arch;
-   $Tk::platform = 'unix' if $Tk::platform eq 'x';
-  }
- else
-  {
-   $Tk::platform = ($^O eq 'MSWin32') ? $^O : 'unix';
-  }
-};
-
-$Tk::tearoff = 1 if ($Tk::platform eq 'unix');
-
-
-@EXPORT    = qw(Exists Ev exit MainLoop DoOneEvent tkinit);
-@EXPORT_OK = qw(NoOp after *widget *event lsearch catch $XS_VERSION
-                DONT_WAIT WINDOW_EVENTS  FILE_EVENTS TIMER_EVENTS
-                IDLE_EVENTS ALL_EVENTS
-                NORMAL_BG ACTIVE_BG SELECT_BG
-                SELECT_FG TROUGH INDICATOR DISABLED BLACK WHITE);
-%EXPORT_TAGS = (eventtypes => [qw(DONT_WAIT WINDOW_EVENTS  FILE_EVENTS
-                                  TIMER_EVENTS IDLE_EVENTS ALL_EVENTS)],
-                variables  => [qw(*widget *event)],
-                colors     => [qw(NORMAL_BG ACTIVE_BG SELECT_BG SELECT_FG
-                                  TROUGH INDICATOR DISABLED BLACK WHITE)],
-               );
+@EXPORT    = qw(Exists Ev after exit MainLoop DoOneEvent tkinit);
+@EXPORT_OK = qw(Exists Ev after exit MainLoop DoOneEvent tkinit NoOp lsearch);
 
 use strict;
-use Carp;
 
-# Record author's perforce depot record
-#$Tk::CHANGE      = q$Change: 3279 $;
-#$Tk::CHANGE      = 'sfsvn-' . q$Change: 27 $;
-$Tk::CHANGE      = 'git-controlled';
+use Carp;
 
 # $tk_version and $tk_patchLevel are reset by pTk when a mainwindow
 # is created, $VERSION is checked by bootstrap
-$Tk::version     = '8.4';
-$Tk::patchLevel  = '8.4';
-$Tk::VERSION     = '804.032_500';
-$Tk::VERSION     =~ s{_}{};
-$Tk::XS_VERSION  = $Tk::VERSION;
+$Tk::version     = "4.0";
+$Tk::patchLevel  = "4.0p1";
+$Tk::VERSION     = "b12";
 $Tk::strictMotif = 0;
+                                   
+$Tk::library = __FILE__;
+$Tk::library =~ s/\.pm$//;
+$Tk::library = Tk->findINC('.') unless (-d $Tk::library);
 
-
-{($Tk::library) = __FILE__ =~ /^(.*)\.pm$/;}
-$Tk::library = Tk->findINC('.') unless (defined($Tk::library) && -d $Tk::library);
-
-$Tk::widget  = undef;
-$Tk::event   = undef;
-
-use vars qw($inMainLoop);
-
-bootstrap Tk;
+bootstrap Tk $Tk::VERSION;
 
 my $boot_time = timeofday();
 
-# This is a workround for Solaris X11 locale handling
-Preload(DynaLoader::dl_findfile('-L/usr/openwin/lib','-lX11'))
-  if (NeedPreload() && -d '/usr/openwin/lib');
+# This is a workround for Solaris X11 locale handling 
+Preload(DynaLoader::dl_findfile('-L/usr/openwin/lib','-lX11')) if (&NeedPreload && -d '/usr/openwin/lib');
 
-use Tk::Submethods ('option'    =>  [qw(add get clear readfile)],
-                    'clipboard' =>  [qw(clear append get)]
-                   );
+# Supress used once warnings on function table pointers 
+# How can we do this in the C code?
+$Tk::TkVtab      = $Tk::TkVtab;
+$Tk::TkintVtab   = $Tk::TkintVtab;
+$Tk::LangVtab    = $Tk::LangVtab;
+$Tk::TkglueVtab  = $Tk::TkglueVtab;
+$Tk::XlibVtab    = $Tk::XlibVtab;
+$Tk::VERSION     = $Tk::VERSION;
+$Tk::version     = $Tk::version;
+$Tk::patchLevel  = $Tk::patchLevel;
+$Tk::strictMotif = $Tk::strictMotif;
 
-#
-# Next few routines are here as perl code as doing caller()
-# in XS code is very complicated - so instead C code calls BackTrace
-#
-sub _backTrace
+BEGIN 
 {
- my $w = shift;
- my $i = 1;
- my ($pack,$file,$line,$sub) = caller($i++);
- while (1)
-  {
-   my $loc = "at $file line $line";
-   ($pack,$file,$line,$sub) = caller($i++);
-   last unless defined($sub);
-   return 1 if $sub eq '(eval)';
-   $w->AddErrorInfo("$sub $loc");
-  }
- return 0;
+ sub SubMethods
+ {
+  no strict 'refs';
+  my $package = caller(0);
+  while (@_)
+   {
+    my $fn = shift;
+    my $sm = shift;
+    my $sub;
+    foreach $sub (@{$sm})
+     {
+      my ($suffix) = $sub =~ /(\w+)$/;
+      *{$package.'::'."$fn\u$suffix"} = sub { shift->$fn($sub,@_) };
+     }
+   }
+ }
+ SubMethods( 'option'    =>  [qw(add get clear readfile)],
+             'clipboard' => [qw(clear append)]
+           );
 }
+
 
 sub BackTrace
 {
  my $w = shift;
  return unless (@_ || $@);
  my $mess = (@_) ? shift : "$@";
- die "$mess\n" if $w->_backTrace;
- # if we get here we are not in an eval so report now
- $w->Fail($mess);
- $w->idletasks;
+ my $i = 0;  
+ my ($pack,$file,$line,$sub) = caller($i++);
+ while (1)   
+  {          
+   my $loc = "at $file line $line";
+   ($pack,$file,$line,$sub) = caller($i++);
+   last if (!defined($sub) || $sub eq '(eval)');
+   $w->AddErrorInfo("$sub $loc");
+  }          
+ $@ = "";
  die "$mess\n";
-}
-
-#
-# This is a $SIG{__DIE__} handler which does not change the $@
-# string in the way 'croak' does, but rather add to Tk's ErrorInfo.
-# It stops at 1st enclosing eval on assumption that the eval
-# is part of Tk call process and will add its own context to ErrorInfo
-# and then pass on the error.
-#
-sub __DIE__
-{
- my $mess = shift;
- my $w = $Tk::widget;
- # Note that if a __DIE__ handler returns it re-dies up the chain.
- return unless defined($w) && Exists($w);
- # This special message is for exit() as an exception see pTkCallback.c
- return if $mess =~/^_TK_EXIT_\(\d+\)/;
- return if $w->_backTrace;
- # Not in an eval - should not happen
-}
-
-sub XEvent::xy { shift->Info('xy') }
-
-sub XEvent::AUTOLOAD
-{
- my ($meth) = $XEvent::AUTOLOAD =~ /(\w)$/;
- no strict 'refs';
- *{$XEvent::AUTOLOAD} = sub { shift->Info($meth) };
- goto &$XEvent::AUTOLOAD;
 }
 
 sub NoOp  { }
 
 sub Ev
 {
- if (@_ == 1)
+ my @args = @_;
+ my $obj;
+ if (@args == 1)
   {
-   my $arg = $_[0];
-   return bless (((ref $arg) ? $arg : \$arg), 'Tk::Ev');
+   my $arg = pop(@args);
+   $obj = (ref $arg) ? $arg : \$arg;
   }
- else
+ else 
   {
-   return bless [@_],'Tk::Ev';
+   $obj = \@args;
   }
+ return bless $obj,"Tk::Ev";
 }
 
-sub InitClass
-{
- my ($package,$parent) = @_;
- croak "Unexpected type of parent $parent" unless(ref $parent);
- croak "$parent is not a widget" unless($parent->IsWidget);
- my $mw = $parent->MainWindow;
- my $hash = $mw->TkHash('_ClassInit_');
- unless (exists $hash->{$package})
+
+sub lsearch
+{my $ar = shift;
+ my $x  = shift;
+ my $i;
+ for ($i = 0; $i < scalar @$ar; $i++)
   {
-   $package->Install($mw);
-   $hash->{$package} = $package->ClassInit($mw);
+   return $i if ($$ar[$i] eq $x);
   }
+ return -1;
 }
 
 require Tk::Widget;
 require Tk::Image;
 require Tk::MainWindow;
 
-sub Exists
-{my $w = shift;
- return defined($w) && ref($w) && $w->IsWidget && $w->exists;
-}
-
-sub Time_So_Far
+sub break
 {
- return timeofday() - $boot_time;
+ die "_TK_BREAK_\n";
 }
 
-# Selection* are not autoloaded as names are too long.
+sub idletasks
+{
+ shift->update('idletasks');
+}
+
+sub updateWidgets
+{
+ my ($w) = @_;
+ while ($w->DoOneEvent(0x13))   # No wait, X events and idle events
+  {
+  }
+ $w;
+}
+
+sub ImageNames
+{
+ image('names');
+}
+
+sub ImageTypes
+{
+ image('types');
+}
+
+sub interps
+{
+ my $w = shift;
+ return $w->winfo('interps','-displayof');
+}
 
 sub SelectionOwn
 {my $widget = shift;
@@ -210,245 +169,23 @@ sub SelectionOwn
 
 sub SelectionOwner
 {
- selection('own','-displayof',@_);
+ selection('own',"-displayof",@_);
 }
 
 sub SelectionClear
 {
- selection('clear','-displayof',@_);
+ selection('clear',"-displayof",@_);
 }
 
 sub SelectionExists
 {
- selection('exists','-displayof',@_);
+ selection('exists',"-displayof",@_);
 }
 
 sub SelectionHandle
 {my $widget = shift;
  my $command = pop;
  selection('handle',@_,$widget,$command);
-}
-
-sub SplitString
-{
- local $_ = shift;
- my (@arr, $tmp);
- while (/\{([^{}]*)\}|((?:[^\s\\]|\\.)+)/gs) {
-   if (defined $1) { push @arr, $1 }
-   else { $tmp = $2 ; $tmp =~ s/\\([\s\\])/$1/g; push @arr, $tmp }
- }
- # carp '('.join(',',@arr).")";
- return @arr;
-}
-
-sub Methods
-{
- my ($package) = caller;
- no strict 'refs';
- foreach my $meth (@_)
-  {
-   my $name = $meth;
-   *{$package."::$meth"} = sub { shift->WidgetMethod($name,@_) };
-  }
-}
-
-my %dialog = ( tk_chooseColor => 'ColorDialog',
-               tk_messageBox  => 'MessageBox',
-               tk_getOpenFile => 'FDialog',
-               tk_getSaveFile => 'FDialog',
-               tk_chooseDirectory => 'FDialog'
-# Slaven claims NI-S's version above does not work
-# and provides this
-#              tk_chooseDirectory => 'DirDialog'
-             );
-
-foreach my $dialog (keys %dialog)
- {
-  no strict 'refs';
-  unless (defined &$dialog)
-   {
-    my $kind = $dialog;
-    my $code = \&{"Tk::$dialog{$dialog}"};
-    *$dialog = sub { &$code($kind,@_) };
-   }
- }
-
-sub MessageBox {
-    my ($kind,%args) = @_;
-    require Tk::Dialog;
-    my $parent = delete $args{'-parent'};
-    my $args = \%args;
-
-    $args->{-bitmap} = delete $args->{-icon} if defined $args->{-icon};
-    $args->{-text} = delete $args->{-message} if defined $args->{-message};
-    $args->{-type} = 'OK' unless defined $args->{-type};
-
-    my $type;
-    if (defined($type = delete $args->{-type})) {
-	delete $args->{-type};
-	my @buttons = grep($_,map(ucfirst($_),
-                      split(/(abort|retry|ignore|yes|no|cancel|ok)/,
-                            lc($type))));
-	$args->{-buttons} = [@buttons];
-	$args->{-default_button} = ucfirst(delete $args->{-default}) if
-	    defined $args->{-default};
-	if (not defined $args->{-default_button} and scalar(@buttons) == 1) {
-	   $args->{-default_button} = $buttons[0];
-	}
-        my $md = $parent->Dialog(%$args);
-        my $an = $md->Show;
-        $md->destroy if Tk::Exists($md);
-        return $an;
-    }
-} # end messageBox
-
-sub messageBox
-{
- my ($widget,%args) = @_;
- # remove in a later version:
- if (exists $args{'-text'})
-  {
-   warn "The -text option is deprecated. Please use -message instead";
-   if (!exists $args{'-message'})
-    {
-     $args{'-message'} = delete $args{'-text'};
-    }
-  }
- $args{'-type'}    = (exists $args{'-type'})    ? lc($args{'-type'}) : 'ok';
- $args{'-default'} = lc($args{'-default'}) if (exists $args{'-default'});
- ucfirst tk_messageBox(-parent => $widget, %args);
-}
-sub _adapt_path_to_os
-{
- # adapting the path of -initalfile and -initialdir to the operating system
- # (like that getOpenFile(-initialdir => 'c:/WINNT') will work, as it will
- #  be converted to c:\WINNT)
- my %args = @_;
- foreach my $option (qw(-initialfile -initialdir))
-  {
-   if ($args{$option})
-    {
-     $args{$option} = File::Spec->catfile($args{$option});
-    }
-   }
- return %args;
-}    
-sub getOpenFile
-{
- tk_getOpenFile(-parent => shift,_adapt_path_to_os(@_));
-}
-
-sub getSaveFile
-{
- tk_getSaveFile(-parent => shift,_adapt_path_to_os(@_));
-}
-
-sub chooseColor
-{
- tk_chooseColor(-parent => shift,@_);
-}
-
-sub chooseDirectory
-{
- tk_chooseDirectory(-parent => shift,_adapt_path_to_os(@_));
-}
-
-sub DialogWrapper
-{
- my ($method,$kind,%args) = @_;
- my $created = 0;
- my $w = delete $args{'-parent'};
- if (defined $w)
-  {
-   $args{'-popover'} = $w;
-  }
- else
-  {
-   $w = MainWindow->new;
-   $w->withdraw;
-   $created = 1;
-  }
- my $mw = $w->toplevel;
- my $fs = $mw->{$kind};
- unless (defined $fs)
-  {
-   $mw->{$kind} = $fs = $mw->$method(%args);
-  }
- else
-  {
-   $fs->configure(%args);
-  }
- my $val = $fs->Show;
- $w->destroy if $created;
- return $val;
-}
-
-sub ColorDialog
-{
- require Tk::ColorEditor;
- DialogWrapper('ColorDialog',@_);
-}
-
-sub FDialog
-{
- require Tk::FBox;
- my $cmd = shift;
- if ($cmd =~ /Save/)
-  {
-   push @_, -type => 'save';
-  }
- elsif ($cmd =~ /Directory/)
-  {
-   push @_, -type => 'dir';
-  }
- DialogWrapper('FBox', $cmd, @_);
-}
-
-sub DirDialog
-{
- require Tk::DirTree;
- DialogWrapper('DirTreeDialog',@_);
-}
-
-*MotifFDialog = \&FDialog;
-
-*CORE::GLOBAL::exit = \&exit;
-
-sub MainLoop
-{
- unless ($inMainLoop)
-  {
-   local $inMainLoop = 1;
-   while (Tk::MainWindow->Count)
-    {
-     DoOneEvent(0);
-    }
-  }
-}
-
-sub tkinit { return MainWindow->new(@_) }
-
-# a wrapper on eval which turns off user $SIG{__DIE__}
-sub catch (&)
-{
- my $sub = shift;
- eval {local $SIG{'__DIE__'}; &$sub };
-}
-
-my $Home;
-
-sub TranslateFileName
-{
- local $_ = shift;
- unless (defined $Home)
-  {
-   $Home = $ENV{'HOME'} || (defined $ENV{'HOMEDRIVE'} && defined $ENV{'HOMEPATH'} ? $ENV{'HOMEDRIVE'}.$ENV{'HOMEPATH'} : "");
-   $Home =~ s#\\#/#g;
-   $Home .= '/' unless $Home =~ m#/$#;
-  }
- s#~/#$Home#g;
- # warn $_;
- return $_;
 }
 
 sub findINC
@@ -464,46 +201,38 @@ sub findINC
  return undef;
 }
 
-sub idletasks
+sub Time_So_Far
 {
- shift->update('idletasks');
+ return timeofday() - $boot_time;
+} 
+
+sub Exists
+{my $w = shift;
+ return defined($w) && ref($w) && $w->IsWidget && $w->exists;
 }
-
-sub backtrace
-{
- my ($self,$msg,$i) = @_;
- $i = 1 if @_ < 3;
- while (1)
-  {
-   my ($pack,$file,$line,$sub) = caller($i++);
-   last unless defined($sub);
-   $msg .= "\n $sub at $file line $line";
-  }
- return "$msg\n";
-}
-
-sub die_with_trace
-{
- my ($self,$msg) = @_;
- die $self->backtrace($msg,1);
-}
-
-
 
 1;
 
 __END__
+# provide an exit() to be exported if exit occurs 
+# before a MainWindow->new()
+sub exit { CORE::exit(@_);}
 
 sub Error
 {my $w = shift;
  my $error = shift;
  if (Exists($w))
   {
-   my $grab = $w->grab('current');
+   my $grab = $w->grab('current');  
    $grab->Unbusy if (defined $grab);
   }
  chomp($error);
- warn "Tk::Error: $error\n " . join("\n ",@_)."\n";
+ warn "Tk::Error: $error\n " . join("\n ",@_);
+}
+
+sub tkinit
+{
+ return MainWindow->new(@_);
 }
 
 sub CancelRepeat
@@ -553,16 +282,6 @@ sub FocusChildren { shift->children }
 sub focusNext
 {
  my $w = shift;
- my $cur = $w->getNextFocus;
- if ($cur)
-  {
-   $cur->tabFocus;
-  }
-}
-
-sub getNextFocus
-{
- my $w = shift;
  my $cur = $w;
  while (1)
   {
@@ -591,7 +310,8 @@ sub getNextFocus
     }
    if ($cur == $w || $cur->FocusOK)
     {
-     return $cur;
+     $cur->Tk::focus;
+     return;
     }
   }
 }
@@ -606,16 +326,6 @@ sub getNextFocus
 # to the previous window before this one in the traversal
 # order.
 sub focusPrev
-{
- my $w = shift;
- my $cur = $w->getPrevFocus;
- if ($cur)
-  {
-   $cur->tabFocus;
-  }
-}
-
-sub getPrevFocus
 {
  my $w = shift;
  my $cur = $w;
@@ -655,7 +365,8 @@ sub getPrevFocus
    $cur = $parent;
    if ($cur == $w || $cur->FocusOK)
     {
-     return $cur;
+     $cur->Tk::focus;
+     return;
     }
   }
 
@@ -665,23 +376,20 @@ sub FocusOK
 {
  my $w = shift;
  my $value;
- catch { $value = $w->cget('-takefocus') };
+ eval { $value = $w->cget('-takefocus') };
  if (!$@ && defined($value))
   {
    return 0 if ($value eq '0');
-   return $w->viewable if ($value eq '1');
-   if ($value)
-    {
-     $value = $w->$value();
-     return $value if (defined $value);
-    }
+   return 1 if ($value eq '1');
+   $value = $w->$value();
+   return $value if (defined $value);
   }
  if (!$w->viewable)
   {
    return 0;
   }
- catch { $value = $w->cget('-state') } ;
- if (!$@ && defined($value) && $value eq 'disabled')
+ eval { $value = $w->cget('-state') } ;
+ if (!$@ && defined($value) && $value eq "disabled")
   {
    return 0;
   }
@@ -703,21 +411,15 @@ sub FocusOK
 sub EnterFocus
 {
  my $w  = shift;
- return unless $w;
  my $Ev = $w->XEvent;
  my $d  = $Ev->d;
- $w->Tk::focus() if ($d eq 'NotifyAncestor' ||  $d eq 'NotifyNonlinear' ||  $d eq 'NotifyInferior');
-}
-
-sub tabFocus
-{
- shift->Tk::focus;
+ $w->Tk::focus() if ($d eq "NotifyAncestor" ||  $d eq "NotifyNonlinear" ||  $d eq "NotifyInferior");
 }
 
 sub focusFollowsMouse
 {
  my $widget = shift;
- $widget->bind('all','<Enter>','EnterFocus');
+ $widget->bind('all',"EnterFocus");
 }
 
 # tkTraverseToMenu --
@@ -735,8 +437,9 @@ sub TraverseToMenu
 {
  my $w = shift;
  my $char = shift;
- return unless(defined $char && $char ne '');
+ return unless(defined $char && $char ne "");
  $w = $w->toplevel->FindMenu($char);
+ $w->PostFirst() if (defined $w);
 }
 # tkFirstMenu --
 # This procedure traverses to the first menubutton in the toplevel
@@ -748,7 +451,8 @@ sub TraverseToMenu
 sub FirstMenu
 {
  my $w = shift;
- $w = $w->toplevel->FindMenu('');
+ $w = $w->toplevel->FindMenu("");
+ $w->PostFirst() if (defined $w);
 }
 
 # These wrappers don't use method syntax so need to live
@@ -757,101 +461,21 @@ sub FirstMenu
 sub Selection
 {my $widget = shift;
  my $cmd    = shift;
- croak 'Use SelectionOwn/SelectionOwner' if ($cmd eq 'own');
+ croak "Use SelectionOwn/SelectionOwner" if ($cmd eq 'own');
  croak "Use Selection\u$cmd()";
 }
 
-# If we have sub Clipboard in Tk then use base qw(Tk::Clipboard ....)
-# calls it when it does its eval "require $base"
-#sub Clipboard
-#{my $w = shift;
-# my $cmd    = shift;
-# croak "Use clipboard\u$cmd()";
-#}
+sub Clipboard
+{my $w = shift;
+ my $cmd    = shift;
+ croak "Use clipboard\u$cmd()";
+}
 
 sub Receive
 {
  my $w = shift;
- warn 'Receive(' . join(',',@_) .')';
- die 'Tk rejects send(' . join(',',@_) .")\n";
+ warn "Receive(" . join(',',@_) .")";
+ $w->BackTrace("Tk rejects send(" . join(',',@_) .")\n");
 }
-
-sub break
-{
- die "_TK_BREAK_\n";
-}
-
-sub updateWidgets
-{
- my ($w) = @_;
- while ($w->DoOneEvent(DONT_WAIT|IDLE_EVENTS|WINDOW_EVENTS))
-  {
-  }
- $w;
-}
-
-sub ImageNames
-{
- image('names');
-}
-
-sub ImageTypes
-{
- image('types');
-}
-
-sub interps
-{
- my $w = shift;
- return $w->winfo('interps','-displayof');
-}
-
-sub lsearch
-{my $ar = shift;
- my $x  = shift;
- my $i;
- for ($i = 0; $i < scalar @$ar; $i++)
-  {
-   return $i if ($$ar[$i] eq $x);
-  }
- return -1;
-}
-
-
-sub getEncoding
-{
- my ($class,$name) = @_;
- eval { require Encode };
- if ($@)
-  {
-   require Tk::DummyEncode;
-   return Tk::DummyEncode->getEncoding($name);
-  }
- $name = $Tk::font_encoding{$name} if exists $Tk::font_encoding{$name};
- my $enc = Encode::find_encoding($name);
-
- unless ($enc)
-  {
-   $enc = Encode::find_encoding($name) if ($name =~ s/[-_]\d+$//)
-  }
-# if ($enc)
-#  {
-#   print STDERR "Lookup '$name' => ".$enc->name."\n";
-#  }
-# else
-#  {
-#   print STDERR "Failed '$name'\n";
-#  }
- unless ($enc)
-  {
-   if ($name eq 'X11ControlChars')
-    {
-     require Tk::DummyEncode;
-     $Encode::encoding{$name} = $enc = Tk::DummyEncode->getEncoding($name);
-    }
-  }
- return $enc;
-}
-
 
 

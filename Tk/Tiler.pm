@@ -1,19 +1,13 @@
-# Copyright (c) 1995-2004 Nick Ing-Simmons. All rights reserved.
-# This program is free software; you can redistribute it and/or
-# modify it under the same terms as Perl itself.
 # An example of a geometry manager "widget" in perl
 package Tk::Tiler;
 require Tk;
 require Tk::Frame;
+@ISA = qw(Tk::Frame);
 
-use vars qw($VERSION);
-#$VERSION = sprintf '4.%03d', q$Revision: #12 $ =~ /\D(\d+)\s*$/;
-$VERSION = '4.013';
-
-use base  qw(Tk::Frame);
-
-Construct Tk::Widget 'Tiler';
+Tk::Widget->Construct('Tiler');
 sub Tk::Widget::ScrlTiler { shift->Scrolled('Tiler' => @_) }
+
+use Tk::Pretty;
 
 sub FocusChildren
 {
@@ -29,11 +23,11 @@ sub Populate
  $obj->{Start} = 0;
  $obj->{Sw}    = 0;
  $obj->{Sh}    = 0;
- $obj->ConfigSpecs('-takefocus'      => ['SELF', 'takeFocus','TakeFocus',1],
-                   '-highlightthickness' => ['SELF', 'highlightThickness','HighlightThickness',2],
-                   '-yscrollcommand' => ['CALLBACK',undef,undef,undef],
-                   '-columns'        => ['PASSIVE','columns','Columns',5],
-                   '-rows'           => ['PASSIVE','rows','Rows',10]
+ $obj->ConfigSpecs('-takefocus'      => [SELF, 'takeFocus','TakeFocus',1],
+                   '-highlightthickness' => [SELF, 'highlightThickness','HighlightThickness',2],
+                   '-yscrollcommand' => [CALLBACK,undef,undef,undef],
+                   '-columns'        => [PASSIVE,'columns','Columns',5],
+                   '-rows'           => [PASSIVE,'rows','Rows',10]
                   );
  return $obj;
 }
@@ -58,17 +52,16 @@ sub Layout
  $m->{LayoutPending} = 0;
  my $W = $m->Width;
  my $H = $m->Height;
- my $w = $m->{Sw} || 1;  # max width of slave
- my $h = $m->{Sh} || 1;  # max height of slave
- my $x = $bw;
- my $y = $bw;
+ my $w = $m->{Sw};  # max width of slave
+ my $h = $m->{Sh};  # max height of slave
+ my $x = $bw; 
+ my $y = $bw; 
  my $start = 0;
  # Set size and position of slaves
- my $rows = $m->{Rows} = int(($H-2*$bw)/$h) || 1;
- my $cols = $m->{Cols} = int(($W-2*$bw)/$w) || 1;
+ my $rows = $m->{Rows} = ($H-2*$bw)/$h;
+ my $cols = $m->{Cols} = ($W-2*$bw)/$w;
  my $need = $m->{Need} = int( (@{$m->{Slaves}}+$cols-1)/$cols );
  $m->{Start} = ($need - $rows) if ($m->{Start} + $rows > $need);
-
  $m->{Start} = 0               if ($m->{Start} < 0);
  my $row = 0;
  my @posn  = ();
@@ -103,7 +96,7 @@ sub Layout
     }
    $s->ResizeWindow($w,$h) if ($why & 1);
   }
- $row++ if ($x > $bw);
+ $row++ if ($x);
  if (defined $m->{Prev} && $m->{Prev} > $m->{Start})
   {
    @posn = reverse(@posn);
@@ -116,13 +109,13 @@ sub Layout
    $s->MapWindow;
   }
  $m->{Prev} = $m->{Start};
- $m->Callback(-yscrollcommand => $m->{Start}/$need,$row/$need) if $need;
+ $m->Callback(-yscrollcommand => $m->{Start}/$need,$row/$need);
 }
 
 sub QueueLayout
 {
  my ($m,$why) = @_;
- $m->afterIdle(['Layout',$m]) unless ($m->{LayoutPending});
+ $m->DoWhenIdle(['Layout',$m]) unless ($m->{LayoutPending});
  $m->{LayoutPending} |= $why;
 }
 
@@ -160,11 +153,11 @@ sub Manage
  my $s;
  foreach $s (@_)
   {
-   $m->ManageGeometry($s);
-   push(@{$m->{Slaves}},$s);
+   $m->ManageGeometry($s);      
+   push(@{$m->{Slaves}},$s);    
    $m->SlaveGeometryRequest($s);
   }
- $m->QueueLayout(2 | 1);
+ $m->QueueLayout(2);
 }
 
 sub moveto
@@ -187,7 +180,7 @@ sub yview { my $w = shift; my $c = shift; $w->$c(@_) }
 sub FocusIn
 {
  my ($w) = @_;
-# print 'Focus ',$w->PathName,"\n";
+ print "Focus ",$w->PathName,"\n";
 }
 
 sub ClassInit

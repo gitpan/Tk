@@ -1,5 +1,3 @@
-use Data::Dumper;
-
 sub do_nm
 {
  my $obj = shift;
@@ -13,9 +11,9 @@ sub do_nm
      $file{$obj}{$name} = $kind;
      if ($kind ne 'U')
       {
-       if (exists($def{$name}) && ($def{$name}[0] ne $kind || $def{$name}[1] ne $obj))
+       if (exists $def{$name})
         {
-         warn "$name " . Dumper($def{$name}) . " and [$kind,$obj]\n";
+         warn "$name " . pretty($def{$name}) . " and [$kind,$obj]\n"; 
         }
        $def{$name} = [$kind,$obj];
       }

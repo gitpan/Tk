@@ -2,7 +2,6 @@
 #define LANG_VT
 typedef struct LangVtab
 {
- unsigned (*tabSize)(void);
 #define VFUNC(type,name,mem,args) type (*mem) args;
 #define VVAR(type,name,mem)       type (*mem);
 #include "Lang.t"
@@ -10,5 +9,5 @@ typedef struct LangVtab
 #undef VVAR
 } LangVtab;
 extern LangVtab *LangVptr;
-extern LangVtab *LangVGet(void);
+extern LangVtab *LangVGet _ANSI_ARGS_((void));
 #endif /* LANG_VT */

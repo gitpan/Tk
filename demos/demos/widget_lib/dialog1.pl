@@ -1,11 +1,8 @@
 # dialog1.pl
 
-use subs qw/see_code/;
-use vars qw/$DIALOG1/;
-
 sub dialog1 {
 
-    my($demo) = @_;
+    my($demo) = @ARG;
 
     my($ok, $can, $see) = ('OK', 'Cancel', 'See Code');
     if (not Exists($DIALOG1)) {
@@ -26,7 +23,7 @@ sub dialog1 {
 
     print "You pressed OK\n" if $button eq $ok;
     print "You pressed Cancel\n" if $button eq $can;
-    see_code 'dialog1' if $button eq $see;
+    &see_code('dialog1') if $button eq $see;
 
 } # end dialog1
 

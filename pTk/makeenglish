@@ -7,24 +7,21 @@ print <<'EOH';
 package Tk::English;
 
 require Exporter;
-use base  (Exporter);
+@ISA = (Exporter);
 
 # This file is generated automatically by pTk/makeenglish from Tk distribution.
 
 EOH
 
-my %found = ();
+%found = ();
 
-opendir(DIR,'.') || die "Cannot open '.':$!";
-@ARGV = grep(/\.c/,readdir(DIR));
-closedir(DIR);
-
-while (<>)
+@ARGV = <*.c>;
+while (<>) 
  {
   if (/strn?cmp\s*\(.*"([a-z][a-z0-9]+)"/)
    {my $key = $1;
     my $name = "\U$key";
-    if (!defined $found{$name})
+    if (!defined $found{$name}) 
      {
       $found{$name} = $key;
      }
@@ -34,12 +31,12 @@ while (<>)
 
 print "\n\@EXPORT = qw(\n";
 $line = "";
-foreach (sort keys %found)
+foreach (sort keys %found) 
  {
   if (length($line)+length($_)+2 > 76)
    {
     print "    $line\n";
-    $line = "";
+    $line = ""; 
    }
   else
    {
@@ -52,7 +49,7 @@ print ");\n";
 
 foreach $name (sort keys %found) {
     my $key = $found{$name};
-    print qq(sub $name () { '$key' }\n);
+    print qq(sub $name { '$key' }\n);
 }
 
 print "\n1;\n";

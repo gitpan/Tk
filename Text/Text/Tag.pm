@@ -3,10 +3,6 @@ require Tk::Text;
 
 use overload '""' => \&name;
 
-
-use vars qw($VERSION);
-$VERSION = '4.004'; # $Id: //depot/Tkutf8/Text/Text/Tag.pm#4 $
-
 sub _apply
 {
  my $self = shift;
@@ -14,7 +10,7 @@ sub _apply
  $self->widget->tag($meth => $self->name,@_);
 }
 
-sub name
+sub name 
 {
  return shift->[0];
 }
@@ -24,12 +20,12 @@ sub widget
  return shift->[1];
 }
 
-BEGIN
+BEGIN 
 {
  my $meth;
  foreach $meth (qw(cget configure bind add))
   {
-   *{$meth} = sub { shift->_apply($meth,@_) }
+   *{$meth} = sub { shift->_apply($meth,@_) } 
   }
 }
 

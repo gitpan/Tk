@@ -1,30 +1,15 @@
-# Copyright (c) 1995-2003 Nick Ing-Simmons. All rights reserved.
-# This program is free software; you can redistribute it and/or
-# modify it under the same terms as Perl itself.
 package Tk::Table;
 use strict;
-
-use vars qw($VERSION);
-$VERSION = '4.016';
-
+use Tk::Pretty;
 use AutoLoader;
-use base qw(Tk::Frame);
-
-Construct Tk::Widget 'Table';
-
-# Constants for QueueLayout flags
-sub _SlaveSize   () {  1 } # Slave has asked for change of width or height
-sub _SlaveChange () {  2 } # We lost or gained a slave
-sub _ViewChange  () {  4 } # xview or yview called
-sub _ConfigEvent () {  8 } # Table has changed size
-sub _ScrollBars  () { 32 } # Scrollabrs came or went
-sub _RowColCount () { 16 } # rows or columns configured
-
+require Tk::Frame;
+@Tk::Table::ISA = qw(Tk::Frame);
+Tk::Widget->Construct('Table');
 
 sub ClassInit
 {
  my ($class,$mw) = @_;
- $mw->bind($class,'<Configure>',['QueueLayout',_ConfigEvent]);
+ $mw->bind($class,'<Configure>',['QueueLayout',8]);
  $mw->bind($class,'<FocusIn>',  'NoOp');
  $mw->XYscrollBind($class);
  return $class;
@@ -43,7 +28,7 @@ sub _view
    $$s += $num;
   }
  $$s = 0 if ($$s < 0);
- $t->QueueLayout(_ViewChange);
+ $t->QueueLayout(4);
 }
 
 sub xview
@@ -60,11 +45,9 @@ sub yview
 
 sub FocusChildren
 {
- my $t = shift;
- return () if ($t->cget('-takefocus'));
- return $t->SUPER::FocusChildren;
+ return (wantarray) ? () : 0;
 }
-
+                                        
 sub Populate
 {
  my ($t,$args) = @_;
@@ -77,7 +60,15 @@ sub Populate
                  '-fixedcolumns'       => [METHOD => 'fixedColumn','FixedColumns',0],
                  '-highlightthickness' => [SELF => 'highlightThickness','HighlightThickness',2]
                  );
- $t->_init;
+ $t->{'Width'}  = [];
+ $t->{'Height'} = [];
+ $t->{'Row'}    = [];
+ $t->{'Slave'}  = {};
+ $t->{'Top'}    = 0;
+ $t->{'Left'}   = 0;
+ $t->{'Bottom'} = 0;
+ $t->{'Right'}  = 0;
+ $t->{LayoutPending} = 0;
 }
 
 sub sizeN
@@ -102,6 +93,7 @@ sub sizeN
  return $max;
 }
 
+
 sub total
 {
  my ($a)   = @_;
@@ -124,11 +116,10 @@ sub constrain
  $n = $fixed if ($n < $fixed);
  for ($i= 0; $i < $fixed; $i++)
   {
-    (defined($a->[$i])) && ($total += $a->[$i]);
+   $total += $a->[$i];
   }
  for ($i=$n; $total < $pixels && $i < @$a; $i++)
   {
-   $a->[$i] ||= 0;
    $total += $a->[$i];
   }
  while ($n > $fixed)
@@ -145,18 +136,17 @@ sub constrain
 sub Layout
 {
  my ($t)    = @_;
- return unless Tk::Exists($t);
  my $rows   = @{$t->{Row}};
  my $bw     = $t->cget(-highlightthickness);
  my $frows  = $t->cget(-fixedrows);
  my $fcols  = $t->cget(-fixedcolumns);
  my $sb     = $t->cget(-scrollbars);
  my $H      = $t->Height;
- my $W      = $t->Width;
- my $tadj   = $bw;
- my $badj   = $bw;
- my $ladj   = $bw;
- my $radj   = $bw;
+ my $W      = $t->Width; 
+ my $tadj   = $bw; 
+ my $badj   = $bw; 
+ my $ladj   = $bw; 
+ my $radj   = $bw; 
  my @xs     = ($W,0,0,0);
  my @ys     = (0,$H,0,0);
  my $xsb;
@@ -165,13 +155,12 @@ sub Layout
  my $why   = $t->{LayoutPending};
  $t->{LayoutPending} = 0;
 
- if ($sb =~ /[ns]/)
+ if ($sb =~ /^[ns]/)
   {
    $t->{xsb} = $t->Scrollbar(-orient => 'horizontal', -command => ['xview' => $t]) unless (defined $t->{xsb});
    $xsb   = $t->{xsb};
-   $t->Advertise('xscrollbar' => $xsb);
    $xs[3] = $xsb->ReqHeight;
-   if ($sb =~ /n/)
+   if ($sb =~ /^n/)
     {
      $xs[1] = $tadj;
      $tadj += $xs[3];
@@ -187,13 +176,12 @@ sub Layout
    $t->{xsb}->UnmapWindow if (defined $t->{xsb});
   }
 
- if ($sb =~ /[ew]/)
+ if ($sb =~ /[ew]$/)
   {
    $t->{ysb} = $t->Scrollbar(-orient => 'vertical', -command => ['yview' => $t]) unless (defined $t->{ysb});
    $ysb    = $t->{ysb};
-   $t->Advertise('yscrollbar' => $ysb);
    $ys[2]  = $ysb->ReqWidth;
-   if ($sb =~ /w/)
+   if ($sb =~ /w$/)
     {
      $ys[0] = $ladj;
      $ladj += $ys[2];
@@ -215,9 +203,9 @@ sub Layout
  my $top  = $t->{Top}+$frows;
  my $left = $t->{Left}+$fcols;
 
- if ($why & (_ScrollBars|_RowColCount|_SlaveSize))
+ if ($why & 49)  
   {
-   # Width and/or Height of element or
+   # Width and/or Height of element or 
    # number of rows and/or columns or
    # scrollbar presence has changed
    my $w = sizeN($t->cget('-columns'),$t->{Width})+$radj+$ladj;
@@ -235,7 +223,6 @@ sub Layout
    for ($r = 0; $r < $rows; $r++)
     {
      my $h = $t->{Height}[$r];
-     next unless defined $h;
      if (($r < $top && $r >= $frows) || ($y+$h > $H-$badj))
       {
        if (defined $t->{Row}[$r])
@@ -249,14 +236,14 @@ sub Layout
              $s->UnmapWindow;
              if ($why & 1)
               {
-               my $w = $t->{Width}[$c];
+               my $w = $t->{Width}[$c]; 
                $s->ResizeWindow($w,$h);
               }
             }
           }
         }
       }
-     else
+     else 
       {
        my $hwm  = $left-$fcols;
        my $sh   = 0;
@@ -266,7 +253,7 @@ sub Layout
        for ($c = 0; $c <$cols; $c++)
         {
          my $s = $t->{Row}[$r][$c];
-         my $w = $t->{Width}[$c];
+         my $w = $t->{Width}[$c]; 
          if (($c < $left && $c >= $fcols) || ($x+$w > $W-$radj) )
           {
            if (defined $s)
@@ -293,8 +280,8 @@ sub Layout
            $x     += $w;
            if ($c >= $fcols)
             {
-             $hwm++;
-             $sh    += $w
+             $hwm++;      
+             $sh    += $w 
             }
           }
         }
@@ -313,7 +300,7 @@ sub Layout
    if (defined $xsb && $xs[2] > 0)
     {
      $xsb->MoveResizeWindow(@xs);
-     $cols -= $fcols;
+     $cols -= $fcols; 
      if ($cols > 0)
       {
        $xsb->set($t->{Left}/$cols,$t->{Right}/$cols);
@@ -336,7 +323,7 @@ sub Layout
 sub QueueLayout
 {
  my ($m,$why) = @_;
- $m->afterIdle(['Layout',$m]) unless ($m->{LayoutPending});
+ $m->DoWhenIdle(['Layout',$m]) unless ($m->{LayoutPending});
  $m->{LayoutPending} |= $why;
 }
 
@@ -350,13 +337,13 @@ sub SlaveGeometryRequest
  if ($sw > $m->{Width}[$col])
   {
    $m->{Width}[$col] = $sw;
-   $m->QueueLayout(_SlaveSize);
+   $m->QueueLayout(1);
    $sz++;
   }
- if ( (not defined ($m->{Height}[$row])) or $sh > $m->{Height}[$row])
+ if ($sh > $m->{Height}[$row])
   {
    $m->{Height}[$row] = $sh;
-   $m->QueueLayout(_SlaveSize);
+   $m->QueueLayout(1);
    $sz++;
   }
  if (!$sz)
@@ -383,38 +370,9 @@ sub LostSlave
   }
  else
   {
-   $t->BackTrace('Cannot find' . $s->PathName);
+   $t->BackTrace("Cannot find" . $s->PathName);
   }
- $t->QueueLayout(_SlaveChange);
-}
-
-sub clear {
-    my $self = shift;
-    my $rows = $self->cget(-rows);
-    my $cols = $self->cget(-columns);
-    foreach my $r (0 .. $rows-1) {
-	foreach my $c (0 .. $cols-1) {
-	    my $old = $self->get( $r, $c );
-	    next unless $old;
-	    $self->LostSlave($old);
-	    $old->destroy;
-	}
-    }
-    $self->_init;
-    $self->QueueLayout(_SlaveSize);
-}
-
-sub _init {
-    my $self = shift;
-    $self->{'Width'}  = [];
-    $self->{'Height'} = [];
-    $self->{'Row'}    = [];
-    $self->{'Slave'}  = {};
-    $self->{'Top'}    = 0;
-    $self->{'Left'}   = 0;
-    $self->{'Bottom'} = 0;
-    $self->{'Right'}  = 0;
-    $self->{LayoutPending} = 0;
+ $t->QueueLayout(2);
 }
 
 sub put
@@ -424,8 +382,8 @@ sub put
  $t->ManageGeometry($w);
  unless (defined $t->{Row}[$row])
   {
-   $t->{Row}[$row] = [];
-   $t->{Height}[$row] = 0;
+   $t->{Row}[$row] = []; 
+   $t->{Height}[$row] = 0; 
   }
  unless (defined $t->{Width}[$col])
   {
@@ -440,7 +398,7 @@ sub put
  $t->{Row}[$row][$col] = $w;
  $t->{Slave}{$w->PathName} = [$row,$col];
  $t->SlaveGeometryRequest($w);
- $t->QueueLayout(_SlaveChange);
+ $t->QueueLayout(2);
  return $old;
 }
 
@@ -454,7 +412,7 @@ sub scrollbars
  if (@_ > 1)
   {
    $t->_configure(-scrollbars => $v);
-   $t->QueueLayout(_ScrollBars);
+   $t->QueueLayout(32);
   }
  return $t->_cget('-scrollbars');
 }
@@ -465,18 +423,7 @@ sub rows
  if (@_ > 1)
   {
    $t->_configure(-rows => $r);
-   if ($t->{Row} && @{$t->{Row}} > $r)
-    {
-     for my $y ($r .. $#{$t->{Row}})
-      {
-       for my $s (@{$t->{Row}[$y]})
-        {
-	 $s->destroy if $s;
-	}
-      }
-     splice @{ $t->{Row} }, $r;
-    }
-   $t->QueueLayout(_RowColCount);
+   $t->QueueLayout(16);
   }
  return $t->_cget('-rows');
 }
@@ -487,7 +434,7 @@ sub fixedrows
  if (@_ > 1)
   {
    $t->_configure(-fixedrows => $r);
-   $t->QueueLayout(_RowColCount);
+   $t->QueueLayout(16);
   }
  return $t->_cget('-fixedrows');
 }
@@ -498,22 +445,7 @@ sub columns
  if (@_ > 1)
   {
    $t->_configure(-columns => $r);
-   if ($t->{Row})
-    {
-     for my $row (@{$t->{Row}})
-      {
-       for my $s (@$row[$r .. $#$row])
-        {
-	 $s->destroy if $s;
-	}
-       {   # FIXME? - Steve was getting warnings :
-           #   splice() offset past end of array
-	   local $^W = 0;
-	   splice @$row, $r;
-       }
-      }
-    }
-   $t->QueueLayout(_RowColCount);
+   $t->QueueLayout(16);
   }
  return $t->_cget('-columns');
 }
@@ -524,7 +456,7 @@ sub fixedcolumns
  if (@_ > 1)
   {
    $t->_configure(-fixedcolumns => $r);
-   $t->QueueLayout(_RowColCount);
+   $t->QueueLayout(16);
   }
  return $t->_cget('-fixedcolumns');
 }
@@ -567,13 +499,13 @@ sub see
    if ($row < $t->{Top})
     {
      $t->{Top} = $row;
-     $t->QueueLayout(_ViewChange);
+     $t->QueueLayout(4);
      $see = 0;
     }
    elsif ($row >= $t->{Bottom})
     {
      $t->{Top} += ($row - $t->{Bottom}+1);
-     $t->QueueLayout(_ViewChange);
+     $t->QueueLayout(4);
      $see = 0;
     }
   }
@@ -582,16 +514,96 @@ sub see
    if ($col < $t->{Left})
     {
      $t->{Left} = $col;
-     $t->QueueLayout(_ViewChange);
+     $t->QueueLayout(4);
      $see = 0;
     }
    elsif ($col >= $t->{Right})
     {
      $t->{Left} += ($col - $t->{Right}+1);
-     $t->QueueLayout(_ViewChange);
+     $t->QueueLayout(4);
      $see = 0;
     }
   }
  return $see;
 }
+
+
+=head1 NAME
+
+Tk::Table - Scrollable 2 dimensional table of Tk widgets
+
+=head1 SYNOPSIS
+
+  use Tk::Table;
+
+  $table = $parent->Table(-rows => number,
+                          -columns => number,
+                          -scrollbars => anchor,
+                          -fixedrows => number,
+                          -fixedcolumns => number,
+                          -takefocus => boolean);
+
+  $widget = $table->Button(...);
+
+  $old = $table->put($row,$col,$widget);
+  $old = $table->put($row,$col,"Text");  # simple Label 
+  $widget = $table->get($row,$col);
+
+  $cols = $table->totalColumns;
+  $rows = $table->totalRows;
+
+  $table->see($widget);
+  $table->see($row,$col);
+
+  ($row,$col) = $table->Posn($widget);
+
+=head1 DESCRIPTION 
+
+Tk::Table is an all-perl widget/geometry manager which allows a two dimensional
+table of arbitary perl/Tk widgets to be displayed.
+
+Entries in the Table are simply ordinary perl/Tk widgets. They should
+be created with the Table as their parent. Widgets are positioned in the 
+table using:
+
+ $table->put($row,$col,$widget)
+
+All the widgets in each column are set to the same width - the requested
+width of the widest widget in the column.
+Likewise, all the widgets in each row are set to the same height - the requested
+height of the tallest widget in the column.             
+
+A number of rows and/or columns can be marked as 'fixed' - and so can serve
+as 'headings' for the remainder the rows which are scrollable.
+
+The requested size of the table as a whole is such that the number of rows
+specified by -rows (default 10), and number of columns specified by -columns
+(default 10) can be displayed.
+
+If the Table is told it can take the keyboard focus then cursor and scroll
+keys scroll the displayed widgets.
+
+The Table will create and manage its own scrollbars if requested via 
+-scrollbars.
+
+The Tk::Table widget is derived from a Tk::Frame, so inherits all its
+configure options.
+
+=head1 BUGS / Snags / Possible enhancements
+
+=over 3
+
+=item * 
+
+Very large Tables consume a lot of X windows
+
+=item * 
+
+No equivalent of pack's -anchor/-pad etc. options 
+
+=back 
+
+=cut
+
+
 

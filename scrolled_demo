@@ -1,0 +1,32 @@
+#!/usr/local/bin/perl
+
+
+
+use Tk;
+
+@ARGV = $0 unless (@ARGV);
+@data = <>;
+
+$top = MainWindow->new();
+
+$lb  = $top->ScrlListbox(-scrollbars => 'rsw',-label => 'sw');
+$lb->configure(-labelRelief => 'raised');
+$lb->insert('end',@data);
+$lb->pack(-side => left, -expand => 1, -fill => 'both'  );
+
+$lb  = $top->ScrlListbox(-scrollbars => 'rnw',-label => 'nw');
+$lb->configure(-labelRelief => 'raised');
+$lb->insert('end',@data);
+$lb->pack(-side => left, -expand => 1, -fill => 'both'  );
+
+$lb  = $top->ScrlListbox(-scrollbars => 'rse',-label => 'se');
+$lb->configure(-labelRelief => 'raised');
+$lb->insert('end',@data);
+$lb->pack(-side => left, -expand => 1, -fill => 'both'  );
+
+$lb  = $top->ScrlListbox(-scrollbars => 'rne',-label => 'ne');
+$lb->configure(-labelRelief => 'raised');
+$lb->insert('end',@data);
+$lb->pack(-side => left, -expand => 1, -fill => 'both'  );
+
+MainLoop();

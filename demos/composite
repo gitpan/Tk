@@ -1,4 +1,5 @@
-#!/usr/bin/env perl
+#!/usr/local/bin/perl -w
+
 
 use English;
 use Tk;
@@ -11,7 +12,7 @@ my $MW = MainWindow->new;
 # globally configure the advertised Frame, Label and Radiobutton widgets.
 # Lastly, specifically configure the radiobutton widget labeled 'RL3', a tiny
 # widget inside the advertised composite LabeledRadiobutton widget, the
-# entry widget in the advertised composite LabeledEntry widget, and then
+# entry widget in the advertised composite LabeledEntry widget, and then 
 # create some key bindings.
 
 my $entry_var = 'Frogs lacking lipophores are blue.';
@@ -31,19 +32,19 @@ $cw->Walk(sub {print "  subwidget=", shift->PathName, "\n";});
 
 $cw->Walk(
     sub {
-        my($w, $class) = @_;
+        my($w, $class) = @ARG;
         $w->configure(-relief => 'ridge', -bd => 5) if $class eq $w->class;
     }, 'Frame',
-);
+);    
 $cw->Walk(
     sub {
-        my($w, $class) = @_;
+        my($w, $class) = @ARG;
         $w->configure(-relief => 'flat', -bg => 'azure') if $class eq $w->class;
     }, 'Label',
 );
 $cw->Walk(
     sub {
-        my($w, $class) = @_;
+        my($w, $class) = @ARG;
         $w->configure(-selectcolor => 'red', -indicatoron => 0, -bg => 'green')
             if $class eq $w->class;
     }, 'Radiobutton',
@@ -87,7 +88,7 @@ MainLoop;
 
 sub process_return {
 
-    my($objref) = @_;
+    my($objref) = @ARG;
 
     print "In entry callback, objref=$objref, \$entry_var=\'$entry_var\'.\n";
 

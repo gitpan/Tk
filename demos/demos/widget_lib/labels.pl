@@ -1,42 +1,68 @@
 # labels.pl
 
-use vars qw/$TOP/;
-
 sub labels {
 
-    # Create a top-level window that displays a bunch of labels.  @pl is the
-    # "packing list" variable which specifies the list of packer attributes.
+    # Create a top-level window that displays a bunch of labels.
 
-    my($demo) = @_;
-    $TOP = $MW->WidgetDemo(
-        -name     => $demo,
-        -text     => 'Five labels are displayed below: three textual ones on the left, and an image label and a text label on the right.  Labels are pretty boring because you can\'t do anything with them.',
-        -title    => 'Label Demonstration',
-        -iconname => 'label',
+    my($demo) = @ARG;
+
+    $LABEL->destroy if Exists($LABEL);
+    $LABEL = $MW->Toplevel;
+    my $w = $LABEL;
+    dpos($w);
+    $w->title('Label Demonstration');
+    $w->iconname('labels');
+
+    my $w_msg = $w->Label(
+        -font       => $FONT,
+        -wraplength => '4i',
+        -justify    => 'left',
+        -text       => 'Five labels are displayed below: three textual ones on the left, and an image label and a text label on the right.  Labels are pretty boring because you can\'t do anything with them.',
     );
+    $w_msg->pack;
 
-    my(@pl) = qw/-side left -expand yes -padx 10 -pady 10 -fill both/;
-    my $left = $TOP->Frame->pack(@pl);
-    my $right = $TOP->Frame->pack(@pl);
+    my $w_buttons = $w->Frame;
+    $w_buttons->pack(qw(-side bottom -fill x -pady 2m));
+    my $w_dismiss = $w_buttons->Button(
+        -text    => 'Dismiss',
+        -command => [$w => 'destroy'],
+    );
+    $w_dismiss->pack(qw(-side left -expand 1));
+    my $w_see = $w_buttons->Button(
+        -text    => 'See Code',
+        -command => [\&see_code, $demo],
+    );
+    $w_see->pack(qw(-side left -expand 1));
 
-    @pl = qw/-side top -expand yes -pady 2 -anchor w/;
-    my $left_l1 = $left->Label(-text => 'First label')->pack(@pl);
-    my $left_l2 = $left->Label(
-        -text   => 'Second label, raised just for fun',
+    my $w_left = $w->Frame;
+    my $w_right = $w->Frame;
+    my(@pl) = (-side => 'left', -expand => 'yes', -padx => 10, -pady => 10,
+	       -fill => 'both');
+    $w_left->pack(@pl);
+    $w_right->pack(@pl);
+
+    my $w_left_l1 = $w_left->Label(-text => 'First label');
+    my $w_left_l2 = $w_left->Label(
+        -text => 'Second label, raised just for fun', 
         -relief => 'raised',
-    )->pack(@pl);
-    my $left_l3 = $left->Label(
-        -text   => 'Third label, sunken',
+    );
+    my $w_left_l3 = $w_left->Label(
+        -text => 'Third label, sunken',
         -relief => 'sunken',
-    )->pack(@pl);
+    );
+    @pl = (-side => 'top', -expand => 'yes', -pady => 2, -anchor => 'w');
+    $w_left_l1->pack(@pl);
+    $w_left_l2->pack(@pl);
+    $w_left_l3->pack(@pl);
 
-    @pl = qw/-side top/;
-    my $right_bitmap = $right->Label(
-        -image       => $TOP->Photo(-file => Tk->findINC('Xcamel.gif')),
+    my $w_right_bitmap = $w_right->Label(
+        -image => $LABEL->Photo(-file => Tk->findINC('Xcamel.gif')),
         -borderwidth => 2,
-	-relief      => 'sunken',
-    )->pack(@pl);
-    my $right_caption = $right->Label(-text => 'Perl/Tk')->pack(@pl);
+	-relief => 'sunken',
+    );
+    my $w_right_caption = $w_right->Label(-text => 'Perl/Tk');
+    $w_right_bitmap->pack(-side => 'top');
+    $w_right_caption->pack(-side => 'top');
 
 } # end labels
 

@@ -3,11 +3,6 @@ package Tk::DragDrop::Common;
 use strict;
 use Carp;
 
-no warnings 'once'; # cease warning about Tk::DragDrop::type
-
-use vars qw($VERSION);
-$VERSION = '4.005'; # $Id: //depot/Tkutf8/DragDrop/DragDrop/Common.pm#4 $
-
 sub Type
 {
  my ($base,$name,$class) = @_;
@@ -17,7 +12,7 @@ sub Type
  unless (exists $hash->{$name})
   {
    push(@$array,$name);
-   $class = (caller(0))[0] unless (@_ > 2);
+   $class = (caller(0))[0] unless (@_ > 2); 
    $hash->{$name} = $class;
    # confess "Strange class $class for $base/$name" unless ($class =~ /^Tk/);
    # print "$base $name is ",$class,"\n";
@@ -41,11 +36,12 @@ sub import
      else
       {
        my ($kind) = $class =~ /([A-Z][a-z]+)$/;
+       # print "$type $class is kind of '$kind'\n";
        my $file = Tk->findINC("DragDrop/${type}${kind}.pm");
        if (defined $file)
         {
-         # print "Loading $file\n";
-         require $file;
+         # print "Loading $file\n"; 
+         require $file; 
         }
        else
         {
@@ -58,4 +54,15 @@ sub import
 
 1;
 __END__
+
+=head1 NAME
+
+Tk::DragDrop::Common - private class used by Drag&Drop
+
+=head1 DESCRIPTION
+
+This class provides methods to automate the the loading and declaring 
+of Drop and Site 'types'.
+
+
 

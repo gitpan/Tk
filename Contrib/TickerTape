@@ -2,14 +2,6 @@
 
 =head1 NAME
 
-TickerTape - Display long message in Tk
-
-=head1 SYNOPSIS
-
-TickerTape Message
-
-=head1 DESCRIPTION
-
 For everyone with a case of Browser envy after using Microsoft's Internet
 Explorer, here's a perl/tk script only slightly more useful than a script
 to do <BLINK>. Don't know why I wrote it. Don't know why you'd run it.
@@ -20,14 +12,13 @@ tog
 Terry Greenlaw (on-site @ Lockheed Martin)               Encompass Technologies
 z50816@mip.lasc.lockheed.com                             terry@encompass.is.net
 
-=cut
+=cut 
 
 
 use Tk;
 
+$message="THIS IS A VERY LONG SCROLLING MESSAGE...      ";
 $top = MainWindow->new;
-
-$message= (@ARGV) ? join(' ',@ARGV) : "THIS IS A VERY LONG SCROLLING MESSAGE...      ";
 $l1 = $top->Label(-fg=>'White',-text=>'This is the top of the screen');
 $l1->pack( -fill => 'both', -expand => 1 );
 $m1 = $top->Label(-fg=>'Red', -bg=>'black',
@@ -45,5 +36,5 @@ sub scroll_it {
 $message =~ /(.)(.*)/;
 $message="$2$1";
 ($message2 = $message) =~ s/ /  /g;
-$top->after(200, \&scroll_it);
+after(100, \&scroll_it);
 }

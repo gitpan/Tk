@@ -1,9 +1,9 @@
 /*
-  Copyright (c) 1995-2004 Nick Ing-Simmons. All rights reserved.
+  Copyright (c) 1995 Nick Ing-Simmons. All rights reserved.
   This program is free software; you can redistribute it and/or
   modify it under the same terms as Perl itself.
 */
-#define PERL_NO_GET_CONTEXT
+
 #include <EXTERN.h>
 #include <perl.h>
 #include <XSUB.h>
@@ -12,29 +12,31 @@
 
 #include "pTk/tkPort.h"
 #include "pTk/tkInt.h"
-#include "pTk/tixPort.h"
+#include "pTk/tkVMacro.h"
+#include "pTk/tix.h"
 #include "pTk/tixInt.h"
 #include "tkGlue.h"
 #include "tkGlue.m"
-#include "pTk/tkVMacro.h"
 
+extern int Tix_HListCmd _ANSI_ARGS_((ClientData,Tcl_Interp *,int, Arg *));
+extern Tix_DItemInfo tix_TextItemType;
+extern Tix_DItemInfo tix_ImageTextType;
+extern Tix_DItemInfo tix_WindowItemType;
 
 DECLARE_VTABLES;
-DECLARE_TIX;
 
-MODULE = Tk::HList	PACKAGE = Tk
+MODULE = Tk::HList	PACKAGE = Tk::HList
 
 PROTOTYPES: DISABLE
-
-void
-hlist(...)
-CODE:
- {
-  TKXSRETURN(XSTkCommand(cv,1,Tix_HListCmd,items,&ST(0)));
- }
 
 BOOT:
  {
   IMPORT_VTABLES;
-  IMPORT_TIX;
+  /* Initialize the display item types */
+
+  Tix_AddDItemType(&tix_TextItemType);  
+  Tix_AddDItemType(&tix_ImageTextType); 
+  Tix_AddDItemType(&tix_WindowItemType);
+
+  Lang_TkCommand("hlist",Tix_HListCmd);
  }

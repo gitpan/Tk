@@ -1,14 +1,8 @@
 package Tk::DropSite;
 require Tk::DragDrop::Common;
 require Tk::DragDrop::Rect;
-
-use vars qw($VERSION);
-$VERSION = '4.008'; # sprintf '4.%03d', q$Revision: #7 $ =~ /\D(\d+)\s*$/;
-
-use base  qw(Tk::DragDrop::Common Tk::DragDrop::Rect);
-
-Construct Tk::Widget 'DropSite';
-
+@ISA = qw(Tk::DragDrop::Common Tk::DragDrop::Rect);
+Tk::Widget->Construct('DropSite');
 use strict;
 use vars qw(%type @types);
 
@@ -16,29 +10,24 @@ Tk::DragDrop->Tk::DragDrop::Common::Type('Local');
 
 my @toplevels;
 
-BEGIN
+BEGIN                  
 {
- # Are these really methods of Tk::DragDrop::Rect ?
+ my $name;
  no strict 'refs';
- foreach my $name (qw(x y X Y width height widget))
+ foreach $name (qw(x y X Y width height widget))
   {
    my $key = $name;
    *{"$key"} = sub { shift->{$key} };
   }
 }
 
-# Dropping side API - really only here for Local drops
-# inheritance is a mess right now.
-
-sub NewDrag
+sub CheckSites
 {
  my ($class,$token) = @_;
- # No need to clear cached sites we see live data
 }
 
 sub SiteList
 {
- # this should be inheritable - so that receive side of XDND can re-use it.
  my ($class,$widget) = @_;
  my $t;
  my @list;
@@ -54,6 +43,12 @@ sub SiteList
  return @list;
 }
 
+sub XY
+{
+ my ($site,$event) = @_;
+ return ($event->X - $site->X,$event->Y - $site->Y);
+}
+
 sub Apply
 {
  my $site = shift;
@@ -61,44 +56,38 @@ sub Apply
  my $cb   = $site->{$name};
  if ($cb)
   {
-   my $X = shift;
-   my $Y = shift;
-   $cb->Call(@_,$X - $site->X, $Y - $site->Y);
+   my $event = shift;
+   $cb->Call(@_,$site->XY($event));
   }
 }
 
 sub Drop
 {
- my ($site,$token,$seln,$event) = @_;
- my $X = $event->X;
- my $Y = $event->Y;
- my @targ = $token->SelectionGet(-selection => $seln,'TARGETS');
- $site->Apply(-dropcommand => $X, $Y, $seln,'LocalDrop',\@targ);
- $site->Apply(-entercommand => $X, $Y, 0);
- $token->Done;
+ my ($site,$win,$seln,$event) = @_;
+ $site->SUPER::Drop($win,$seln,$event);
+ $site->Apply(-dropcommand => $event, $seln);
 }
 
 sub Enter
 {
  my ($site,$token,$event) = @_;
- $token->AcceptDrop;
- $site->Apply(-entercommand => $event->X, $event->Y, 1);
+ $site->SUPER::Enter($token,$event);
+ $site->Apply(-entercommand => $event, 1);
 }
 
 sub Leave
 {
  my ($site,$token,$event) = @_;
- $token->RejectDrop;
- $site->Apply(-entercommand => $event->X, $event->Y, 0);
+ $site->SUPER::Leave($token,$event);
+ $site->Apply(-entercommand => $event, 0);
 }
 
 sub Motion
 {
  my ($site,$token,$event) = @_;
- $site->Apply(-motioncommand => $event->X, $event->Y);
+ $site->SUPER::Motion($token,$event);
+ $site->Apply(-motioncommand => $event);
 }
-
-# This is receive side API.
 
 sub NoteSites
 {
@@ -114,8 +103,8 @@ sub NoteSites
 sub UpdateDropSites
 {
  my ($t) = @_;
- $t->{'DropUpdate'} = 0;
- foreach my $type (@types)
+ my $type;
+ foreach $type (@types)
   {
    my $sites = $t->{'DropSites'}->{$type};
    if ($sites && @$sites)
@@ -133,7 +122,6 @@ sub QueueDropSiteUpdate
  my $t   = $obj->widget->toplevel;
  unless ($t->{'DropUpdate'})
   {
-   $t->{'DropUpdate'} = 1;
    $t->afterIdle(sub { UpdateDropSites($t) });
   }
 }
@@ -144,17 +132,17 @@ sub delete
  my $w = $obj->widget;
  $w->bindtags([grep($_ ne $obj,$w->bindtags)]);
  my $t = $w->toplevel;
- foreach my $type (@{$obj->{'-droptypes'}})
+ my $type;
+ foreach $type (@{$obj->{'-droptypes'}})
   {
    my $a = $t->{'DropSites'}->{$type};
-   @$a   = grep($_ ne $obj,@$a);
+   @$a    = grep($_ ne $obj,@$a);
   }
  $obj->QueueDropSiteUpdate;
 }
 
 sub DropSiteUpdate
 {
- # Note size of widget and arrange to update properties etc.
  my $obj = shift;
  my $w   = $obj->widget;
  $obj->{'x'}      = $w->X;
@@ -169,7 +157,8 @@ sub DropSiteUpdate
 sub TopSiteUpdate
 {
  my ($t) = @_;
- foreach my $type (@types)
+ my $type;
+ foreach $type (@types)
   {
    my $sites = $t->{'DropSites'}->{$type};
    if ($sites && @$sites)
@@ -204,13 +193,11 @@ sub new
  $args{'widget'} = $w;
  if (exists $args{'-droptypes'})
   {
-   # Convert single type to array-of-one
    $args{'-droptypes'} = [$args{'-droptypes'}] unless (ref $args{'-droptypes'});
   }
  else
   {
-   # Default to all known types.
-   $args{'-droptypes'} = \@types;
+   $args{'-droptypes'} = \@types; 
   }
  my ($key,$val);
  while (($key,$val) = each %args)
@@ -218,14 +205,13 @@ sub new
    if ($key =~ /command$/)
     {
      $val = Tk::Callback->new($val);
-     $args{$key} = $val;
     }
   }
  my $obj = bless \%args,$class;
  unless (exists $t->{'DropSites'})
   {
-   $t->{'DropSites'} = {};
-   $t->{'DropUpdate'} = 0;
+   $t->{'DropSites'} = {}; 
+   $t->{'DropUpdate'} = 0; 
   }
  my $type;
  foreach $type (@{$args{'-droptypes'}})
@@ -233,7 +219,6 @@ sub new
    Tk::DropSite->import($type) unless (exists $type{$type});
    my $class = $type{$type};
    $class->InitSite($obj);
-   # Should this be indexed by type or class ?
    unless (exists $t->{'DropSites'}->{$type})
     {
      $t->{'DropSites'}->{$type}  = [];
@@ -243,8 +228,6 @@ sub new
  $w->OnDestroy([$obj,'delete']);
  $obj->DropSiteUpdate;
  $w->bindtags([$w->bindtags,$obj]);
- $w->Tk::bind($obj,'<Map>',[$obj,'DropSiteUpdate']);
- $w->Tk::bind($obj,'<Unmap>',[$obj,'DropSiteUpdate']);
  $w->Tk::bind($obj,'<Configure>',[$obj,'DropSiteUpdate']);
  $t->Tk::bind($class,'<Configure>',[\&TopSiteUpdate,$t]);
  unless (grep($_ eq $class,$t->bindtags))

@@ -1,24 +1,55 @@
 # cscroll.pl
 
-use subs qw/cscroll_button cscroll_enter cscroll_leave/;
-use vars qw/$TOP/;
+use subs qw(cscroll_button cscroll_enter cscroll_leave);
 
 sub cscroll {
 
     # Create a top-level window containing a simple canvas that can be
     # scrolled in two dimensions.
 
-    my($demo) = @_;
-    $TOP = $MW->WidgetDemo(
-        -name     => $demo,
-        -text     => 'This window displays a canvas widget that can be scrolled either using the scrollbars or by dragging with button 2 in the canvas.  If you click button 1 on one of the rectangles, its indices will be printed on stdout.',
-        -title    => 'Scrollable Canvas Demonstration',
-        -iconname => 'cscroll',
-    );
+    my($demo) = @ARG;
 
-    my $c = $TOP->Scrolled(qw/Canvas -relief sunken -borderwidth 2
-        -scrollbars se -scrollregion/ => ['-10c', '-10c', '50c', '20c']);
-    $c->pack(qw/-expand yes -fill both/);
+    $CSCROLL->destroy if Exists($CSCROLL);
+    $CSCROLL = $MW->Toplevel;
+    my $w = $CSCROLL;
+    dpos $w;
+    $w->title('Scrollable Canvas Demonstration');
+    $w->iconname('cscroll');
+
+    my $w_msg = $w->Label(
+        -font       => $FONT,
+        -wraplength => '4i',
+        -justify    => 'left',
+        -text       => 'This window displays a canvas widget that can be scrolled either using the scrollbars or by dragging with button 2 in the canvas.  If you click button 1 on one of the rectangles, its indices will be printed on stdout.',
+    );
+    $w_msg->pack;
+
+    my $w_buttons = $w->Frame;
+    $w_buttons->pack(qw(-side bottom -fill x -pady 2m));
+    my $w_dismiss = $w_buttons->Button(
+        -text    => 'Dismiss',
+        -command => [$w => 'destroy'],
+    );
+    $w_dismiss->pack(qw(-side left -expand 1));
+    my $w_see = $w_buttons->Button(
+        -text    => 'See Code',
+        -command => [\&see_code, $demo],
+    );
+    $w_see->pack(qw(-side left -expand 1));
+
+    my $c = $w->Canvas(
+        -relief       => 'sunken',
+        -bd           => 2,
+        -scrollregion => ['-10c', '-10c', '50c', '20c'],
+    );
+    my $w_vscroll = $w->Scrollbar(-command => [$c => 'yview']);
+    my $w_hscroll = $w->Scrollbar(-command =>
+				  [$c => 'xview'], -orient => 'horiz');
+    $c->configure(-xscrollcommand => [$w_hscroll => 'set'],
+		  -yscrollcommand => [$w_vscroll => 'set']);
+    $w_vscroll->pack(-side => 'right', -fill => 'y');
+    $w_hscroll->pack(-side => 'bottom', -fill => 'x');
+    $c->pack(-expand => 'yes', -fill => 'both');
 
     my($bg, $i, $j, $x, $y) = ($c->configure(-background))[4];
     for ($i = 0; $i < 20; $i++) {
@@ -26,10 +57,10 @@ sub cscroll {
 	$j = 0;
 	$y = -10;
 	while ($j < 10) {
-	    $c->createRectangle("${x}c", "${y}c",
-		       ($x+2).'c', ($y+2).'c',
+	    $c->create('rectangle', sprintf("%dc", $x), sprintf("%dc", $y),
+		       sprintf("%dc", $x+2), sprintf("%dc", $y+2),
 		       -outline => 'black', -fill => $bg, -tags => 'rect');
-	    $c->createText(($x+1).'c', ($y+1).'c',
+	    $c->create('text', sprintf("%dc", $x+1), sprintf("%dc", $y+1),
 		       -text => "$i,$j", -anchor => 'center', -tags => 'text');
 	    $j++;
 	    $y += 3;
@@ -40,17 +71,24 @@ sub cscroll {
     $c->bind('all', '<Any-Enter>' => [\&cscroll_enter, \$old_fill]);
     $c->bind('all', '<Any-Leave>' => [\&cscroll_leave, \$old_fill]);
     $c->bind('all', '<1>' => \&cscroll_button);
-
-    $c->CanvasBind('<2>' => [ scanMark => Ev('x'), Ev('y') ]);
-    $c->CanvasBind('<B2-Motion>' => [ scanDragto => Ev('x'), Ev('y') ]);
+    $c->Tk::bind('<2>' => sub {
+	my ($c) = @ARG;
+        my $e = $c->XEvent;
+	$c->scan('mark', $e->x, $e->y);
+    });
+    $c->Tk::bind('<B2-Motion>' => sub {
+	my ($c) = @ARG;
+        my $e = $c->XEvent;
+	$c->scan('dragto', $e->x, $e->y);
+    });
 
 } # end cscroll
 
 sub cscroll_button {
 
-    my($c) = @_;
+    my($c) = @ARG;
 
-    my ($id) = $c->find(qw/withtag current/);
+    my $id = $c->find('withtag', 'current');
     $id++ if ($c->gettags('current'))[0] ne 'text';
     print STDOUT 'You buttoned at ', ($c->itemconfigure($id, -text))[4], "\n";
 
@@ -58,12 +96,12 @@ sub cscroll_button {
 
 sub cscroll_enter {
 
-    my($c, $old_fill) = @_;
+    my($c, $old_fill) = @ARG;
 
-    my ($id) = $c->find(qw/withtag current/);
+    my $id = $c->find('withtag', 'current');
     $id-- if ($c->gettags('current'))[0] eq 'text';
     $$old_fill = ($c->itemconfigure($id, -fill))[4];
-    if ($c->depth > 1) {
+    if ($CSCROLL->depth > 1) {
 	$c->itemconfigure($id, -fill => 'SeaGreen1');
     } else {
 	$c->itemconfigure($id, -fill => 'black');
@@ -74,9 +112,9 @@ sub cscroll_enter {
 
 sub cscroll_leave {
 
-    my($c, $old_fill) = @_;
+    my($c, $old_fill) = @ARG;
 
-    my ($id) = $c->find(qw/withtag current/);
+    my $id = $c->find('withtag', 'current');
     $id-- if ($c->gettags('current'))[0] eq 'text';
     $c->itemconfigure($id, -fill => $$old_fill);
     $c->itemconfigure($id+1, -fill => 'black');

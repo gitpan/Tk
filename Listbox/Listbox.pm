@@ -10,444 +10,26 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 
-# Modifications from standard Listbox.pm
-# --------------------------------------
-# 27-JAN-2001 Alasdair Allan
-#    Modified for local use by adding tied scalar and arrays
-#    Implemented TIESCALAR, TIEARRAY, FETCH, FETCHSIZE, STORE, CLEAR & EXTEND
-# 31-JAN-2001 Alasdair Allan
-#    Made changes suggested by Tim Jenness
-# 03-FEB-2001 Alasdair Allan
-#    Modified STORE for tied scalars to clear and select elements
-# 06-FEB-2001 Alasdair Allan
-#    Added POD documentation for tied listbox
-# 13-FEB-2001 Alasdair Allan
-#    Implemented EXISTS, DELETE, PUSH, POP, SHIFT & UNSHIFT for tied arrays
-# 14-FEB-2001 Alasdair Allan
-#    Implemented SPLICE for tied arrays, all tied functionality in place
-# 16-FEB-2001 Alasdair Allan
-#    Tweak to STORE interface for tied scalars
-# 23-FEB-2001 Alasdair Allan
-#    Added flag to FETCH for tied scalars, modified to return hashes
-# 24-FEB-2001 Alasdair Allan
-#    Updated Pod documentation
-#
-
-package Tk::Listbox;
-
-use vars qw($VERSION @Selection $Prev);
-use strict;
-$VERSION = '4.015'; # sprintf '4.%03d', q$Revision: #14 $ =~ /\D(\d+)\s*$/;
-
-use Tk qw(Ev $XS_VERSION);
-use Tk::Clipboard ();
+package Tk::Listbox; 
+use Tk qw(Ev);
+require Tk::Clipboard;
+require DynaLoader;
 use AutoLoader;
 
-use base  qw(Tk::Clipboard Tk::Widget);
+@ISA = qw(DynaLoader Tk::Widget);
 
-Construct Tk::Widget 'Listbox';
+Tk::Widget->Construct('Listbox');
 
-bootstrap Tk::Listbox;
+bootstrap Tk::Listbox $Tk::VERSION; 
 
 sub Tk_cmd { \&Tk::listbox }
 
-Tk::Methods('activate','bbox','curselection','delete','get','index',
-            'insert','itemcget','itemconfigure','nearest','scan','see',
-            'selection','size','xview','yview');
-
-use Tk::Submethods ( 'selection' => [qw(anchor clear includes set)],
-		     'scan'      => [qw(mark dragto)],
-		     'xview'     => [qw(moveto scroll)],
-		     'yview'     => [qw(moveto scroll)],
-		     );
-
-*Getselected = \&getSelected;
-
-sub clipEvents
-{
- return qw[Copy];
-}
-
-sub BalloonInfo
-{
- my ($listbox,$balloon,$X,$Y,@opt) = @_;
- my $e = $listbox->XEvent;
- return if !$e;
- my $index = $listbox->index('@' . $e->x . ',' . $e->y);
- foreach my $opt (@opt)
-  {
-   my $info = $balloon->GetOption($opt,$listbox);
-   if ($opt =~ /^-(statusmsg|balloonmsg)$/ && UNIVERSAL::isa($info,'ARRAY'))
-    {
-     $balloon->Subclient($index);
-     if (defined $info->[$index])
-      {
-       return $info->[$index];
-      }
-     return '';
-    }
-   return $info;
-  }
-}
-
-sub ClassInit
-{
- my ($class,$mw) = @_;
- $class->SUPER::ClassInit($mw);
- # Standard Motif bindings:
- $mw->bind($class,'<1>',[sub {
-			   my $w = shift;
-			   if (Tk::Exists($w)) {
-			     $w->BeginSelect(@_);
-			   }
-			 }, Ev('index',Ev('@'))]);
- $mw->bind($class, '<Double-1>' => \&Tk::NoOp);
- $mw->bind($class,'<B1-Motion>',['Motion',Ev('index',Ev('@'))]);
- $mw->bind($class,'<ButtonRelease-1>','ButtonRelease_1');
- ;
- $mw->bind($class,'<Shift-1>',['BeginExtend',Ev('index',Ev('@'))]);
- $mw->bind($class,'<Control-1>',['BeginToggle',Ev('index',Ev('@'))]);
-
- $mw->bind($class,'<B1-Leave>',['AutoScan',Ev('x'),Ev('y')]);
- $mw->bind($class,'<B1-Enter>','CancelRepeat');
- $mw->bind($class,'<Up>',['UpDown',-1]);
- $mw->bind($class,'<Shift-Up>',['ExtendUpDown',-1]);
- $mw->bind($class,'<Down>',['UpDown',1]);
- $mw->bind($class,'<Shift-Down>',['ExtendUpDown',1]);
-
- $mw->XscrollBind($class);
- $mw->bind($class,'<Prior>', sub {
-	       my $w = shift;
-	       $w->yview('scroll',-1,'pages');
-	       $w->activate('@0,0');
-	   });
- $mw->bind($class,'<Next>',  sub {
-	       my $w = shift;
-	       $w->yview('scroll',1,'pages');
-	       $w->activate('@0,0');
-	   });
- $mw->bind($class,'<Control-Prior>', ['xview', 'scroll', -1, 'pages']);
- $mw->bind($class,'<Control-Next>',  ['xview', 'scroll',  1, 'pages']);
- # <Home> and <End> defined in XscrollBind
- $mw->bind($class,'<Control-Home>','Cntrl_Home');
- ;
- $mw->bind($class,'<Shift-Control-Home>',['DataExtend',0]);
- $mw->bind($class,'<Control-End>','Cntrl_End');
- ;
- $mw->bind($class,'<Shift-Control-End>',['DataExtend','end']);
- # XXX What about <<Copy>>? Already handled in Tk::Clipboard?
- # $class->clipboardOperations($mw,'Copy');
- $mw->bind($class,'<space>',['BeginSelect',Ev('index','active')]);
- $mw->bind($class,'<Select>',['BeginSelect',Ev('index','active')]);
- $mw->bind($class,'<Control-Shift-space>',['BeginExtend',Ev('index','active')]);
- $mw->bind($class,'<Shift-Select>',['BeginExtend',Ev('index','active')]);
- $mw->bind($class,'<Escape>','Cancel');
- $mw->bind($class,'<Control-slash>','SelectAll');
- $mw->bind($class,'<Control-backslash>','Cntrl_backslash');
- ;
- # Additional Tk bindings that aren't part of the Motif look and feel:
- $mw->bind($class,'<2>',['scan','mark',Ev('x'),Ev('y')]);
- $mw->bind($class,'<B2-Motion>',['scan','dragto',Ev('x'),Ev('y')]);
-
- $mw->MouseWheelBind($class); # XXX Both needed?
- $mw->YMouseWheelBind($class);
- return $class;
-}
+Tk::SubMethods ( 'selection' => [qw(anchor clear includes set)],
+                 'scan' => [qw(mark dragto)]
+               );
 
 1;
 __END__
-
-sub TIEARRAY {
-  my ( $class, $obj, %options ) = @_;
-  return bless {
-	    OBJECT => \$obj,
-	    OPTION => \%options }, $class;
-}
-
-
-
-sub TIESCALAR {
-  my ( $class, $obj, %options ) = @_;
-  return bless {
-	    OBJECT => \$obj,
-	    OPTION => \%options }, $class;
-}
-
-# FETCH
-# -----
-# Return either the full contents or only the selected items in the
-# box depending on whether we tied it to an array or scalar respectively
-sub FETCH {
-  my $class = shift;
-
-  my $self = ${$class->{OBJECT}};
-  my %options = %{$class->{OPTION}} if defined $class->{OPTION};;
-
-  # Define the return variable
-  my $result;
-
-  # Check whether we are have a tied array or scalar quantity
-  if ( @_ ) {
-     my $i = shift;
-     # The Tk:: Listbox has been tied to an array, we are returning
-     # an array list of the current items in the Listbox
-     $result = $self->get($i);
-  } else {
-     # The Tk::Listbox has been tied to a scalar, we are returning a
-     # reference to an array or hash containing the currently selected items
-     my ( @array, %hash );
-
-     if ( defined $options{ReturnType} ) {
-
-        # THREE-WAY SWITCH
-        if ( $options{ReturnType} eq "index" ) {
-           $result = [$self->curselection];
-        } elsif ( $options{ReturnType} eq "element" ) {
-	   foreach my $selection ( $self->curselection ) {
-              push(@array,$self->get($selection)); }
-           $result = \@array;
-	} elsif ( $options{ReturnType} eq "both" ) {
-	   foreach my $selection ( $self->curselection ) {
-              %hash = ( %hash, $selection => $self->get($selection)); }
-           $result = \%hash;
-	}
-     } else {
-        # return elements (default)
-        foreach my $selection ( $self->curselection ) {
-           push(@array,$self->get($selection)); }
-        $result = \@array;
-     }
-  }
-  return $result;
-}
-
-# FETCHSIZE
-# ---------
-# Return the number of elements in the Listbox when tied to an array
-sub FETCHSIZE {
-  my $class = shift;
-  return ${$class->{OBJECT}}->size();
-}
-
-# STORE
-# -----
-# If tied to an array we will modify the Listbox contents, while if tied
-# to a scalar we will select and clear elements.
-sub STORE {
-
-  if ( scalar(@_) == 2 ) {
-     # we have a tied scalar
-     my ( $class, $selected ) = @_;
-     my $self = ${$class->{OBJECT}};
-     my %options = %{$class->{OPTION}} if defined $class->{OPTION};;
-
-     # clear currently selected elements
-     $self->selectionClear(0,'end');
-
-     # set selected elements
-     if ( defined $options{ReturnType} ) {
-
-        # THREE-WAY SWITCH
-        if ( $options{ReturnType} eq "index" ) {
-           for ( my $i=0; $i < scalar(@$selected) ; $i++ ) {
-              for ( my $j=0; $j < $self->size() ; $j++ ) {
-                  if( $j == $$selected[$i] ) {
-	             $self->selectionSet($j); last; }
-              }
-           }
-        } elsif ( $options{ReturnType} eq "element" ) {
-           for ( my $k=0; $k < scalar(@$selected) ; $k++ ) {
-              for ( my $l=0; $l < $self->size() ; $l++ ) {
-                 if( $self->get($l) eq $$selected[$k] ) {
-	            $self->selectionSet($l); last; }
-              }
-           }
-	} elsif ( $options{ReturnType} eq "both" ) {
-           foreach my $key ( keys %$selected ) {
-              $self->selectionSet($key)
-	              if $$selected{$key} eq $self->get($key);
-	   }
-	}
-     } else {
-        # return elements (default)
-        for ( my $k=0; $k < scalar(@$selected) ; $k++ ) {
-           for ( my $l=0; $l < $self->size() ; $l++ ) {
-              if( $self->get($l) eq $$selected[$k] ) {
-	         $self->selectionSet($l); last; }
-           }
-        }
-     }
-
-  } else {
-     # we have a tied array
-     my ( $class, $index, $value ) = @_;
-     my $self = ${$class->{OBJECT}};
-
-     # check size of current contents list
-     my $sizeof = $self->size();
-
-     if ( $index <= $sizeof ) {
-        # Change a current listbox entry
-        $self->delete($index);
-        $self->insert($index, $value);
-     } else {
-        # Add a new value
-        if ( defined $index ) {
-           $self->insert($index, $value);
-        } else {
-           $self->insert("end", $value);
-        }
-     }
-   }
-}
-
-# CLEAR
-# -----
-# Empty the Listbox of contents if tied to an array
-sub CLEAR {
-  my $class = shift;
-  ${$class->{OBJECT}}->delete(0, 'end');
-}
-
-# EXTEND
-# ------
-# Do nothing and be happy about it
-sub EXTEND { }
-
-# PUSH
-# ----
-# Append elements onto the Listbox contents
-sub PUSH {
-  my ( $class, @list ) = @_;
-  ${$class->{OBJECT}}->insert('end', @list);
-}
-
-# POP
-# ---
-# Remove last element of the array and return it
-sub POP {
-   my $class = shift;
-
-   my $value = ${$class->{OBJECT}}->get('end');
-   ${$class->{OBJECT}}->delete('end');
-   return $value;
-}
-
-# SHIFT
-# -----
-# Removes the first element and returns it
-sub SHIFT {
-   my $class = shift;
-
-   my $value = ${$class->{OBJECT}}->get(0);
-   ${$class->{OBJECT}}->delete(0);
-   return $value
-}
-
-# UNSHIFT
-# -------
-# Insert elements at the beginning of the Listbox
-sub UNSHIFT {
-   my ( $class, @list ) = @_;
-   ${$class->{OBJECT}}->insert(0, @list);
-}
-
-# DELETE
-# ------
-# Delete element at specified index
-sub DELETE {
-   my ( $class, @list ) = @_;
-
-   my $value = ${$class->{OBJECT}}->get(@list);
-   ${$class->{OBJECT}}->delete(@list);
-   return $value;
-}
-
-# EXISTS
-# ------
-# Returns true if the index exist, and undef if not
-sub EXISTS {
-   my ( $class, $index ) = @_;
-   return undef unless ${$class->{OBJECT}}->get($index);
-}
-
-# SPLICE
-# ------
-# Performs equivalent of splice on the listbox contents
-sub SPLICE {
-   my $class = shift;
-
-   my $self = ${$class->{OBJECT}};
-
-   # check for arguments
-   my @elements;
-   if ( scalar(@_) == 0 ) {
-      # none
-      @elements = $self->get(0,'end');
-      $self->delete(0,'end');
-      return wantarray ? @elements : $elements[scalar(@elements)-1];;
-
-   } elsif ( scalar(@_) == 1 ) {
-      # $offset
-      my ( $offset ) = @_;
-      if ( $offset < 0 ) {
-         my $start = $self->size() + $offset;
-         if ( $start > 0 ) {
-	    @elements = $self->get($start,'end');
-            $self->delete($start,'end');
-	    return wantarray ? @elements : $elements[scalar(@elements)-1];
-         } else {
-            return undef;
-	 }
-      } else {
-	 @elements = $self->get($offset,'end');
-         $self->delete($offset,'end');
-         return wantarray ? @elements : $elements[scalar(@elements)-1];
-      }
-
-   } elsif ( scalar(@_) == 2 ) {
-      # $offset and $length
-      my ( $offset, $length ) = @_;
-      if ( $offset < 0 ) {
-         my $start = $self->size() + $offset;
-         my $end = $self->size() + $offset + $length - 1;
-	 if ( $start > 0 ) {
-	    @elements = $self->get($start,$end);
-            $self->delete($start,$end);
-	    return wantarray ? @elements : $elements[scalar(@elements)-1];
-         } else {
-            return undef;
-	 }
-      } else {
-	 @elements = $self->get($offset,$offset+$length-1);
-         $self->delete($offset,$offset+$length-1);
-         return wantarray ? @elements : $elements[scalar(@elements)-1];
-      }
-
-   } else {
-      # $offset, $length and @list
-      my ( $offset, $length, @list ) = @_;
-      if ( $offset < 0 ) {
-         my $start = $self->size() + $offset;
-         my $end = $self->size() + $offset + $length - 1;
-	 if ( $start > 0 ) {
-	    @elements = $self->get($start,$end);
-            $self->delete($start,$end);
-	    $self->insert($start,@list);
-	    return wantarray ? @elements : $elements[scalar(@elements)-1];
-         } else {
-            return undef;
-	 }
-      } else {
-	 @elements = $self->get($offset,$offset+$length-1);
-         $self->delete($offset,$offset+$length-1);
-	 $self->insert($offset,@list);
-         return wantarray ? @elements : $elements[scalar(@elements)-1];
-      }
-   }
-}
-
-# ----
 
 #
 # Bind --
@@ -468,50 +50,86 @@ sub xyIndex
  return $w->index($Ev->xy);
 }
 
-sub ButtonRelease_1
+sub ClassInit
 {
- my $w = shift;
- my $Ev = $w->XEvent;
- $w->CancelRepeat;
- $w->activate($Ev->xy);
+ my ($class,$mw) = @_;
+
+ # Standard Motif bindings:
+ $mw->bind($class,"<1>",['BeginSelect',Ev('index',Ev('@'))]);
+ $mw->bind($class,"<B1-Motion>",['Motion',Ev('index',Ev('@'))]);
+ $mw->bind($class,"<ButtonRelease-1>",
+	       sub
+	       {
+		my $w = shift;
+		my $Ev = $w->XEvent;
+		$w->CancelRepeat;
+		$w->activate($Ev->xy);
+	       }
+	      )
+ ;
+ $mw->bind($class,"<Shift-1>",['BeginExtend',Ev('index',Ev('@'))]);
+ $mw->bind($class,"<Control-1>",['BeginToggle',Ev('index',Ev('@'))]);
+
+ $mw->bind($class,"<B1-Leave>",['AutoScan',Ev('x'),Ev('y')]);
+ $mw->bind($class,"<B1-Enter>",'CancelRepeat');
+ $mw->bind($class,"<Up>",['UpDown',-1]);
+ $mw->bind($class,"<Shift-Up>",['ExtendUpDown',-1]);
+ $mw->bind($class,"<Down>",['UpDown',1]);
+ $mw->bind($class,"<Shift-Down>",['ExtendUpDown',1]);
+
+ $mw->XscrollBind($class); 
+ $mw->PriorNextBind($class); 
+
+ $mw->bind($class,"<Control-Home>",
+	       sub
+	       {
+		my $w = shift;
+		my $Ev = $w->XEvent;
+		$w->activate(0);
+		$w->see(0);
+		$w->selectionClear(0,"end");
+		$w->selectionSet(0)
+	       }
+	      )
+ ;
+ $mw->bind($class,"<Shift-Control-Home>",['DataExtend',0]);
+ $mw->bind($class,"<Control-End>",
+	       sub
+	       {
+		my $w = shift;
+		my $Ev = $w->XEvent;
+		$w->activate("end");
+		$w->see("end");
+		$w->selectionClear(0,"end");
+		$w->selectionSet('end')
+	       }
+	      )
+ ;
+ $mw->bind($class,"<Shift-Control-End>",['DataExtend','end']);
+ $class->clipboardKeysyms($mw,"F16");
+ $mw->bind($class,"<space>",['BeginSelect',Ev('index','active')]);
+ $mw->bind($class,"<Select>",['BeginSelect',Ev('index','active')]);
+ $mw->bind($class,"<Control-Shift-space>",['BeginExtend',Ev('index','active')]);
+ $mw->bind($class,"<Shift-Select>",['BeginExtend',Ev('index','active')]);
+ $mw->bind($class,"<Escape>",'Cancel');
+ $mw->bind($class,"<Control-slash>",'SelectAll');
+ $mw->bind($class,"<Control-backslash>",
+	       sub
+	       {
+		my $w = shift;
+		my $Ev = $w->XEvent;
+		if ($w->cget("-selectmode") ne "browse")
+		 {
+		  $w->selectionClear(0,"end");
+		 }
+	       }
+	      )
+ ;
+ # Additional Tk bindings that aren't part of the Motif look and feel:
+ $mw->bind($class,"<2>",['scan','mark',Ev('x'),Ev('y')]);
+ $mw->bind($class,"<B2-Motion>",['scan','dragto',Ev('x'),Ev('y')]);
+ return $class;
 }
-
-
-sub Cntrl_Home
-{
- my $w = shift;
- my $Ev = $w->XEvent;
- $w->activate(0);
- $w->see(0);
- $w->selectionClear(0,'end');
- $w->selectionSet(0);
- $w->eventGenerate("<<ListboxSelect>>");
-}
-
-
-sub Cntrl_End
-{
- my $w = shift;
- my $Ev = $w->XEvent;
- $w->activate('end');
- $w->see('end');
- $w->selectionClear(0,'end');
- $w->selectionSet('end');
- $w->eventGenerate("<<ListboxSelect>>");
-}
-
-
-sub Cntrl_backslash
-{
- my $w = shift;
- my $Ev = $w->XEvent;
- if ($w->cget('-selectmode') ne 'browse')
- {
-  $w->selectionClear(0,'end');
-  $w->eventGenerate("<<ListboxSelect>>");
- }
-}
-
 # BeginSelect --
 #
 # This procedure is typically invoked on button-1 presses. It begins
@@ -527,7 +145,7 @@ sub BeginSelect
 {
  my $w = shift;
  my $el = shift;
- if ($w->cget('-selectmode') eq 'multiple')
+ if ($w->cget("-selectmode") eq "multiple")
   {
    if ($w->selectionIncludes($el))
     {
@@ -540,14 +158,12 @@ sub BeginSelect
   }
  else
   {
-   $w->selectionClear(0,'end');
+   $w->selectionClear(0,"end");
    $w->selectionSet($el);
    $w->selectionAnchor($el);
    @Selection = ();
    $Prev = $el
   }
- $w->focus if ($w->cget('-takefocus'));
- $w->eventGenerate("<<ListboxSelect>>");
 }
 # Motion --
 #
@@ -566,36 +182,26 @@ sub Motion
   {
    return;
   }
- my $anchor = $w->index('anchor');
- my $mode = $w->cget('-selectmode');
- if ($mode eq 'browse')
+ $anchor = $w->index("anchor");
+ my $mode = $w->cget("-selectmode");
+ if ($mode eq "browse")
   {
-   $w->selectionClear(0,'end');
+   $w->selectionClear(0,"end");
    $w->selectionSet($el);
    $Prev = $el;
-   $w->eventGenerate("<<ListboxSelect>>");
   }
- elsif ($mode eq 'extended')
+ elsif ($mode eq "extended")
   {
-   my $i = $Prev;
-   if (!defined $i || $i eq '')
-    {
-     $i = $el;
-     $w->selectionSet($el);
-    }
+   $i = $Prev;
    if ($w->selectionIncludes('anchor'))
     {
      $w->selectionClear($i,$el);
-     $w->selectionSet('anchor',$el)
+     $w->selectionSet("anchor",$el)
     }
    else
     {
      $w->selectionClear($i,$el);
-     $w->selectionClear('anchor',$el)
-    }
-   if (!@Selection)
-    {
-     @Selection = $w->curselection;
+     $w->selectionClear("anchor",$el)
     }
    while ($i < $el && $i < $anchor)
     {
@@ -603,7 +209,7 @@ sub Motion
       {
        $w->selectionSet($i)
       }
-     $i++
+     $i += 1
     }
    while ($i > $el && $i > $anchor)
     {
@@ -611,10 +217,9 @@ sub Motion
       {
        $w->selectionSet($i)
       }
-     $i--
+     $i += -1
     }
-   $Prev = $el;
-   $w->eventGenerate("<<ListboxSelect>>");
+   $Prev = $el
   }
 }
 # BeginExtend --
@@ -632,14 +237,9 @@ sub BeginExtend
 {
  my $w = shift;
  my $el = shift;
- if ($w->cget('-selectmode') eq 'extended' && $w->selectionIncludes('anchor'))
+ if ($w->cget("-selectmode") eq "extended" && $w->selectionIncludes("anchor"))
   {
    $w->Motion($el)
-  }
- else
-  {
-   # No selection yet; simulate the begin-select operation.
-   $w->BeginSelect($el);
   }
 }
 # BeginToggle --
@@ -657,7 +257,7 @@ sub BeginToggle
 {
  my $w = shift;
  my $el = shift;
- if ($w->cget('-selectmode') eq 'extended')
+ if ($w->cget("-selectmode") eq "extended")
   {
    @Selection = $w->curselection();
    $Prev = $el;
@@ -670,7 +270,6 @@ sub BeginToggle
     {
      $w->selectionSet($el)
     }
-   $w->eventGenerate("<<ListboxSelect>>");
   }
 }
 # AutoScan --
@@ -687,31 +286,30 @@ sub BeginToggle
 sub AutoScan
 {
  my $w = shift;
- return if !Tk::Exists($w);
  my $x = shift;
  my $y = shift;
  if ($y >= $w->height)
   {
-   $w->yview('scroll',1,'units')
+   $w->yview("scroll",1,"units")
   }
  elsif ($y < 0)
   {
-   $w->yview('scroll',-1,'units')
+   $w->yview("scroll",-1,"units")
   }
  elsif ($x >= $w->width)
   {
-   $w->xview('scroll',2,'units')
+   $w->xview("scroll",2,"units")
   }
  elsif ($x < 0)
   {
-   $w->xview('scroll',-2,'units')
+   $w->xview("scroll",-2,"units")
   }
  else
   {
    return;
   }
  $w->Motion($w->index("@" . $x . ',' . $y));
- $w->RepeatId($w->after(50,'AutoScan',$w,$x,$y));
+ $w->RepeatId($w->after(50,"AutoScan",$w,$x,$y));
 }
 # UpDown --
 #
@@ -726,23 +324,21 @@ sub UpDown
 {
  my $w = shift;
  my $amount = shift;
- $w->activate($w->index('active')+$amount);
- $w->see('active');
- my $mode = $w->cget('-selectmode');
- if ($mode eq 'browse')
+ $w->activate($w->index("active")+$amount);
+ $w->see("active");
+ $LNet__0 = $w->cget("-selectmode");
+ if ($LNet__0 eq "browse")
   {
-   $w->selectionClear(0,'end');
-   $w->selectionSet('active');
-   $w->eventGenerate("<<ListboxSelect>>");
+   $w->selectionClear(0,"end");
+   $w->selectionSet("active")
   }
- elsif ($mode eq 'extended')
+ elsif ($LNet__0 eq "extended")
   {
-   $w->selectionClear(0,'end');
-   $w->selectionSet('active');
-   $w->selectionAnchor('active');
-   $Prev = $w->index('active');
+   $w->selectionClear(0,"end");
+   $w->selectionSet("active");
+   $w->selectionAnchor("active");
+   $Prev = $w->index("active");
    @Selection = ();
-   $w->eventGenerate("<<ListboxSelect>>");
   }
 }
 # ExtendUpDown --
@@ -758,19 +354,13 @@ sub ExtendUpDown
 {
  my $w = shift;
  my $amount = shift;
- if ($w->cget('-selectmode') ne 'extended')
+ if ($w->cget("-selectmode") ne "extended")
   {
    return;
   }
- my $active = $w->index('active');
- if (!@Selection)
-  {
-   $w->selectionSet($active);
-   @Selection = $w->curselection;
-  }
- $w->activate($active + $amount);
- $w->see('active');
- $w->Motion($w->index('active'))
+ $w->activate($w->index("active")+$amount);
+ $w->see("active");
+ $w->Motion($w->index("active"))
 }
 # DataExtend
 #
@@ -786,17 +376,17 @@ sub DataExtend
 {
  my $w = shift;
  my $el = shift;
- my $mode = $w->cget('-selectmode');
- if ($mode eq 'extended')
+ $mode = $w->cget("-selectmode");
+ if ($mode eq "extended")
   {
    $w->activate($el);
    $w->see($el);
-   if ($w->selectionIncludes('anchor'))
+   if ($w->selectionIncludes("anchor"))
     {
      $w->Motion($el)
     }
   }
- elsif ($mode eq 'multiple')
+ elsif ($mode eq "multiple")
   {
    $w->activate($el);
    $w->see($el)
@@ -814,15 +404,17 @@ sub DataExtend
 sub Cancel
 {
  my $w = shift;
- if ($w->cget('-selectmode') ne 'extended' || !defined $Prev)
+ if ($w->cget("-selectmode") ne "extended")
   {
    return;
   }
- my $first = $w->index('anchor');
- my $last = $Prev;
+ $first = $w->index("anchor");
+ $last = $Prev;
  if ($first > $last)
   {
-   ($first, $last) = ($last, $first);
+   $tmp = $first;
+   $first = $last;
+   $last = $tmp
   }
  $w->selectionClear($first,$last);
  while ($first <= $last)
@@ -831,9 +423,8 @@ sub Cancel
     {
      $w->selectionSet($first)
     }
-   $first++
+   $first += 1
   }
- $w->eventGenerate("<<ListboxSelect>>");
 }
 # SelectAll
 #
@@ -846,51 +437,26 @@ sub Cancel
 sub SelectAll
 {
  my $w = shift;
- my $mode = $w->cget('-selectmode');
- if ($mode eq 'single' || $mode eq 'browse')
+ my $mode = $w->cget("-selectmode");
+ if ($mode eq "single" || $mode eq "browse")
   {
-   $w->selectionClear(0,'end');
-   $w->selectionSet('active')
+   $w->selectionClear(0,"end");
+   $w->selectionSet("active")
   }
  else
   {
-   $w->selectionSet(0,'end')
+   $w->selectionSet(0,"end")
   }
- $w->eventGenerate("<<ListboxSelect>>");
 }
 
-# Perl/Tk extensions:
 sub SetList
 {
  my $w = shift;
- $w->delete(0,'end');
- $w->insert('end',@_);
+ $w->delete(0,"end");
+ $w->insert("end",@_);
 }
 
-sub deleteSelected
-{
- my $w = shift;
- my $i;
- foreach $i (reverse $w->curselection)
-  {
-   $w->delete($i);
-  }
-}
-
-sub clipboardPaste
-{
- my $w = shift;
- my $index = $w->index('active') || $w->index($w->XEvent->xy);
- my $str;
- eval {local $SIG{__DIE__}; $str = $w->clipboardGet };
- return if $@;
- foreach (split("\n",$str))
-  {
-   $w->insert($index++,$_);
-  }
-}
-
-sub getSelected
+sub Getselected
 {
  my ($w) = @_;
  my $i;
@@ -902,9 +468,5 @@ sub getSelected
  return (wantarray) ? @result : $result[0];
 }
 
-
-
 1;
 __END__
-
-

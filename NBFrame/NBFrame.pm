@@ -1,20 +1,19 @@
-package Tk::NBFrame;
+package Tk::NBFrame; 
+require Tk;
+require DynaLoader;
 
-use vars qw($VERSION);
-$VERSION = '4.004'; # $Id: //depot/Tkutf8/NBFrame/NBFrame.pm#4 $
+@ISA = qw(DynaLoader Tk::Widget);
 
-use Tk qw($XS_VERSION);
+Tk::Widget->Construct('NBFrame');
 
-use base  qw(Tk::Widget);
-
-Construct Tk::Widget 'NBFrame';
-
-bootstrap Tk::NBFrame;
+bootstrap Tk::NBFrame $Tk::VERSION; 
 
 sub Tk_cmd { \&Tk::nbframe }
 
-Tk::Methods qw(activate add delete focus info geometryinfo identify
-               move pagecget pageconfigure);
+#EnterMethods Tk::NBFrame __FILE__,qw(add addchild anchor column
+#                                   delete dragsite dropsite entrycget
+#                                   entryconfigure geometryinfo hide item info
+#                                   nearest see selection show xview yview);
 
 1;
 

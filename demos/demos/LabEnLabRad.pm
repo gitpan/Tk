@@ -1,15 +1,11 @@
 package Tk::LabeledEntryLabeledRadiobutton;
 require Tk::Frame;
-
-use vars qw($VERSION);
-$VERSION = '4.004'; # $Id: //depot/Tkutf8/demos/demos/LabEnLabRad.pm#4 $
-
-use base  qw(Tk::Frame);
+@ISA = qw(Tk::Frame);
 
 require Tk::LabEntry;
 require Tk::LabRadio;
 
-Construct Tk::Widget 'LabeledEntryLabeledRadiobutton';
+Tk::Widget->Construct('LabeledEntryLabeledRadiobutton');
 
 sub Populate
 {

@@ -1,0 +1,41 @@
+#!/usr/local/bin/perl -w
+
+
+
+require 5.001;
+use IO::Handle;
+use Tk;
+
+$mw = $top = MainWindow->new;
+$mw->title('tkpsh');
+$top->iconname('tkpsh');
+
+autoflush STDOUT 1;
+
+$mw->fileevent(STDIN,'readable',\&doline);
+
+sub doline
+{
+ my $line = <STDIN>;
+ if (!defined $line)
+  {
+   $mw->fileevent(STDIN,'readable','');
+   $mw->destroy;
+  }
+ else
+  {
+   if ($line =~ /^p\s(.*)$/) 
+    {              
+     $line = "print $1, \"!\\n\";";
+    }              
+   eval $line;     
+   print "$@\n" if $@;
+   print "tkpsh> ";
+  }
+}
+
+print "tkpsh> ";
+MainLoop;
+print "\n";
+
+

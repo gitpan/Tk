@@ -1,15 +1,11 @@
 package Tk::Xlib;
 require DynaLoader;
-
-use vars qw($VERSION);
-$VERSION = '4.004'; # $Id: //depot/Tkutf8/Xlib/Xlib.pm#4 $
-
-use Tk qw($XS_VERSION);
+require Tk;
 use Exporter;
 
-use base  qw(DynaLoader Exporter);
+@ISA = qw(DynaLoader Exporter);
 @EXPORT_OK = qw(XDrawString XLoadFont XDrawRectangle);
 
-bootstrap Tk::Xlib;
+bootstrap Tk::Xlib $Tk::VERSION;
 
 1;

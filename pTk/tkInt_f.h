@@ -2,7 +2,6 @@
 #define TKINT_VT
 typedef struct TkintVtab
 {
- unsigned (*tabSize)(void);
 #define VFUNC(type,name,mem,args) type (*mem) args;
 #define VVAR(type,name,mem)       type (*mem);
 #include "tkInt.t"
@@ -10,5 +9,5 @@ typedef struct TkintVtab
 #undef VVAR
 } TkintVtab;
 extern TkintVtab *TkintVptr;
-extern TkintVtab *TkintVGet(void);
+extern TkintVtab *TkintVGet _ANSI_ARGS_((void));
 #endif /* TKINT_VT */

@@ -3,26 +3,25 @@ require Tk::Derived;
 require Tk::HList;
 require DirHandle;
 use Cwd;
-
-use vars qw($VERSION);
-$VERSION = '4.004'; # $Id: //depot/Tkutf8/Tk/Dirlist.pm#5 $
-
-use base  qw(Tk::Derived Tk::HList);
+@ISA = qw(Tk::Derived Tk::HList);
 use strict;
-Construct Tk::Widget 'Dirlist';
+Tk::Widget->Construct('Dirlist');
 
 sub getimage
 {
  my ($w,$key) = @_;
  unless (exists $w->{$key})
   {
-   $w->{$key} = $w->Pixmap(-id => $key);
+   my $file = Tk->findINC("$key.xpm");
+   $w->{$key} = $w->Pixmap(-file => $file) if ($file);
    unless ($w->{$key})
     {
-     $w->{$key} = $w->Bitmap($key);
+     $file = Tk->findINC("$key.xbm");
+     $w->{$key} = $w->Bitmap(-file => $file) if ($file);
     }
+   print "$key file=$file\n";
   }
- return $w->{$key};
+ return $w->{$key}; 
 }
 
 
@@ -46,21 +45,21 @@ sub fullpath
   {
    warn "Cannot cd to $path:$!"
   }
-# print "$path\n";
+ print "$path\n";
  return $path;
 }
 
 sub AddDir
 {
  my ($w,$dir) = @_;
- my $path = '';
- my $prefix = '';
+ my $path = "";
+ my $prefix = "";
  my $first = 0;
  my $name;
  foreach $name (split m#/#,$dir)
   {
    $first++;
-   if ($name eq '')
+   if ($name eq "")
     {
      next unless ($first == 1);
      $path = '/';
@@ -74,7 +73,7 @@ sub AddDir
     }
    unless ($w->info('exists' => $path))
     {
-#     print "Add $path\n";
+     print "Add $path\n";
      $w->add($path,-image => $w->getimage('folder'), -text => $name);
     }
   }
@@ -83,10 +82,10 @@ sub AddDir
 sub choose_image
 {
  my ($w,$path) = @_;
- return 'folder' if (-d $path);
- return 'srcfile'  if ($path =~ /\.[ch]$/);
- return 'textfile' if (-T $path);
- return 'file';
+ return "folder" if (-d $path);
+ return "srcfile"  if ($path =~ /\.[ch]$/);
+ return "textfile" if (-T $path);
+ return "file";
 }
 
 
@@ -96,7 +95,7 @@ sub directory
  my $h = DirHandle->new($val);
  $w->AddDir($val = fullpath($val));
  my $f;
- $w->entryconfigure($val,-image => $w->getimage('act_fold'));
+ $w->entryconfigure($val,-image => $w->getimage('openfolder'));
  foreach $f (sort $h->read)
   {
    next if ($f =~ /^\.+$/);

@@ -1,844 +1,461 @@
-Tk-804.032_500 release (2014-11-06)
-----------------------
-
-Fixes
- Freetype header files may now be in /usr/include/freetype2/freetype.h
- in newer freetype installations (e.g. Debian/jessie).
- https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=740207
-
- Tk::MainWindow::Create without args used to segfault.
-
- Fix X11 discovery on non-x86_64 platforms (RT #95590).
-
- Fix new sprintf warning with perl 5.21.x.
-
- Workaround behaviour change in ExtUtils::MakeMaker 6.99_10 (PERL
- value is now quoted), which caused build failures (RT #100044).
-
-Tests
- Fix race condition in t/errordialog.t
-
- t/create.t uses Test::More
-
- Remove useless hostname and getlogin retrieval in t/fileevent.t
- (RT #98889).
-
- Use pipe instead of stdin in t/fileevent2.t (RT #98891).
-
- Fix font-related issues with t/entry.t (RT #98831).
-
-Documentation
- New Pod ErrorDialog.pod (github pull request #6).
-
-Tk-804.032 release (2014-01-26)
-------------------
-
-This is basically the same like Tk-804.031_503.
-
-Tk-804.031_503 release (2013-12-07)
-----------------------
-
-Fixes
- Regain compatibility for perl < 5.8.9
- (SvIV_nomg is not available with earlier perls).
-
-Tests
- wm-time.t more robust against GNOME Shell slowness.
-
-Tk-804.031_502 release (2013-12-01)
-----------------------
-
-Fixes
- Enable libpng configure for all Solaris architectures.
-
-Documentation
- Update INSTALL, README-ActiveState.txt, and README-Strawberry.txt
- documents.
-
-Tk-804.031_501 release (2013-11-18)
-----------------------
-
-Fixes
- Fix gamma setting for PNG images (was only broken in 804.031_500).
-
- Fix clang compilation error (was only broken in 804.031_500).
-
-Tests
- Some tests are now more robust.
-
-Tk-804.031_500 release (2013-11-17)
-----------------------
-
-Fixes
- RT# 88210: fix compilation for perl 5.19.0+ ("undef bool").
-
- RT# 90077: floating number issue with -textvariable variables.
-
- RT# 89621: avoid segfaults during global destruction (by Gisle Aas).
-
- RT# 87016: compatibility for libpng 1.6.x.
-
- RT# 86988: use cflags/libs information from pkg-config zlib.
-
- RT# 89261: split Tk/ColorEditor.pm into three .pm files.
-
- RT# 71718: fix compilation issue with 64bit Strawberry Perl (Tk_Cursor).
-
- Fail gracefully if no font could be allocated.
-
- ptksh: storing the history works now also under Windows.
-
- Better handling if libpng's configure fails.
-
-Documentation
- Changes to README.linux (dependency requirements, fontconfig) and
- README.cygwin.
-
- Document special Tk::Table behavior regarding -takefocus => 0.
-
-Tests
- New test files (eventGenerate.t, sv.t) and new test cases
- (eventGenerate in optmenu.t).
-
- More test tweaks (e.g. skip some tests if the required fixed font is
- unavailable, see with_fixed_font in TkTest.pm, workaround some fvwm2
- problems in wm-tcl.t, protect from haning wm-time.t).
-
- checked_test_harness() skips testing if no font could be allocated.
-
- No test request user positioning windows anymore (for old window
- managers like twm).
-
- Configuration file for travis-ci.
-
-Tk-804.031 release (2013-05-25)
-----------
-
-This is basically the same like Tk-804.030_502.
-
-Tk-804.030_502 release (2013-05-21)
-----------------------
-
-Fixes
- The CopSTASH_set fix did not work in 804.030_501 because of a
- missing file in the tarball. Now fixed.
-
- Tk::MakeDepend parses gcc's inc search list now and does not rely
- anymore on $Config{usrinc}. This helps when include files are
- partially in "multiarch" subdirectories (e.g. in Debian/sid) or when
- $Config{usrinc} is incorrect (e.g. in ActivePerl+gcc builds).
- RT #85407 and http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=708624
-
- Helping Debian's build process by skipping the quilt state directory
- http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=708635
-
- Improving build process for ActivePerl+gcc (RT #74036); see also
- README-ActiveState.txt.
-
- Use pkg-config for determining libpng cflags and libs.
-
-Tk-804.030_501 release (2013-05-18)
-----------------------
-
-Fixes
- Should compile again with older perls: SvNV_nomg is not available with
- perls older than 5.13.2, and CopSTASH_set(..., NULL) is not possible
- with threaded 5.16.x and older.
-
-Tk-804.030_500 release (2013-05-18)
-----------------------
-
-Incompatible changes
- The Tk::Text::Contents() method does not return an extra newline
- anymore (RT #83124). The version number of Tk::Text was incremented
- to 4.029 and may be used to detect the change.
-
-Fixes
- RT #78824: fixed compilation under threaded bleadperl (5.17.x)
-
- Fix for internal magic handling, needed for perl 5.17.2 and newer.
-
- Fixed myConfig issue with perl 5.17.x.
-
- SvUPGRADE() is no longer an expression since perl 5.17.7.
-
- Off-by-one error in Tk::Table::clear method (problem spotted by David
- Overeem).
-
-Tests
- RT #75347: skip unicode.t under some circumstances (e.g. problematic
- locales on Windows systems)
-
- RT #82664: fixed mismatched test count in entry.t
-
- Fixed Subwidget call in dirtree.t test.
-
- A couple of new test cases, conversions to Test::More...
-
-Documentation
- RT #79381: mention Tkx and Tcl::Tk
-
- Fixed return value for wrapper() in Tk::Wm Pod.
-
- Moved Tk::DragDrop Pods.
-
- "Tk::" prefix was missing in a number of Pods (original problem
- report by Fabien Dupont).
-
-Code cleanup
- Removed some unused static functions from tkGlue.c
-
- Simplified utf8 repair code in Tcl_GetStringFromObj.
-
-Tk-804.030 release (2011-10-20)
-------------------
-
-This is basically the same like Tk-804.029_502.
-
-Tk-804.029_502 release (2011-10-17)
-----------------------
-
-Fixes
- RT #71718: windres call needs the --use-temp-file on some Windows systems
-
- RT #70429: show correct file name if image loading failed. Also
- systematically searched and fixed other bad uses of Tcl_AppendResult.
-
- RT #70243: provide inuse method for Tk::Image
-
- Fixed a possible segfault when using canvas' select clear method.
-
-Tk-804.029_501 release (2011-10-14)
-----------------------
-
-Fixes
- Use standard libpng configure for all amd64 and x86_64 variants.
-
- Support gridRemove method.
- https://rt.cpan.org/Ticket/Display.html?id=65900
-
-Tk-804.029_500 release (2011-06-13)
-----------------------
-
-Fixes
- Fixed compilation with newer X11 version (conflicting types for
- 'XKeycodeToKeysym')
- http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=613188
-
- Use standard libpng configure for some 64 bit variants of OpenBSD,
- amd64-freebsd, x86_64-linux, MacOSX 10.6.4 and newer.
-
- Fixed Strawberry 64bit builds.
-
- Changed handling of "underscore" character.
- https://rt.cpan.org/Ticket/Display.html?id=66205
-
- Tk::ProgressBar::configure calls now go through ConfigChanged
- https://rt.cpan.org/Ticket/Display.html?id=63775
-
- Fixed Tk::FBox::ResolveFile with defaultextension when directory
- contains dots
- https://rt.cpan.org/Ticket/Display.html?id=55146
-
-New features
- BalloonInfo for HList
- Implementation by Christoph Lambrecht, documentation by
- Slaven Rezic
- https://rt.cpan.org/Ticket/Display.html?id=55887
-
- Perl/Tk is now available at github.
-
- Improved "all widgets at a glance" demo.
-
-Tests
- Another attempt on skipping tests if no DISPLAY is available.
- 
- Converted fork.t and progbar.t to Test::More
-
-Documentation
- Fixed SYNOPSIS section in Tk::Text Pod
-
-Tk-804.029 release (2010-05-27)
-------------------
-
-This is basically the same like Tk-804.028_503.
-
-Tests
- after.t is a TODO test on Windows.
-
-Tk-804.028_503 release (2010-05-13)
-----------------------
-
-Fixes
- Tk::Text documentation mentioned -reverse where it should be -backwards.
- Also allow -forwards/-backwards to be abbreviated in FindNext call.
- https://rt.cpan.org/Ticket/Display.html?id=51552
-
- Added WRITE method for tied Text widgets.
- https://rt.cpan.org/Ticket/Display.html?id=45818
-
- Fixed display of Unicode characters in Windows toplevel menus.
- https://rt.cpan.org/Ticket/Display.html?id=50681
-
- No special LDDLFLAGS handling on MacOSX systems, which probably
- caused an unusable Tk module (i.e. bus errors)
- http://rt.cpan.org/Public/Bug/Display.html?id=39593
-
- Fixes Strawberry Perl builds (probably was broken on all 64bit systems)
- Informal patch by Eduard Wulff
-
-Tests
- A missing rgb.txt is no more an error in the Tk::ColorEditor tests,
- as rgb.txt may be missing completely in some X11 installations.
-
-Documentation
- Fixed minor typo in ProgressBar documentation
- https://rt.cpan.org/Ticket/Display.html?id=39182
-
- Documented that -width and -height do not work with NoteBook widgets
- https://rt.cpan.org/Ticket/Display.html?id=52609
-
-Tk-804.028_502 release (2010-01-30)
-----------------------
-
-Fixes
- Support for perl 5.11.2 and later (UTF8_MAXLEN_UCLC is not available
- anymore)
- http://rt.cpan.org/Public/Bug/Display.html?id=53465
-
- Use 'configure' for building libpng under IRIX64
- http://rt.cpan.org/Ticket/Display.html?id=40820
-
- PNG did not build under AIX and IRIC64, unchecked fix
- http://rt.cpan.org/Ticket/Display.html?id=40064
- http://rt.cpan.org/Ticket/Display.html?id=40820
-
- Workaround for a perl bug (?) when using "eq" under a Japanese locale
- under Windows (sample fail report:
- http://www.nntp.perl.org/group/perl.cpan.testers/2008/11/msg2550386.html)
-
- Tk did not support more than 32 fds on 64bit machines
- http://rt.cpan.org/Ticket/Display.html?id=41158
-
- Tk::Trace fix to make Tk::Gauge work
- http://rt.cpan.org/Ticket/Display.html?id=41069
-
- Fixed some regular expression-related and other errors, patch by
- Alexander Krasnorutsky, see
- http://rt.cpan.org/Public/Bug/Display.html?id=41068
-
- Workaround for SvREADONLY issue with 5.8.x
- http://rt.cpan.org/Public/Bug/Display.html?id=41436
-
- Another possible rgb.txt location, by h.m.brand
-
- Fix for attaching balloons to items of scrolled widgets
- http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=246363
-
- Fixed XIM event filtering.
-
- Fixed compilation with newer gcc
- http://rt.cpan.org/Ticket/Display.html?id=49499
-
- RecolorTree was broken since Tk-804.027_501 if called separately.
- Reported and patched by Michael Parker
- http://rt.cpan.org/Public/Bug/Display.html?id=49515
-
- Control-X/Y/C now also works if Caps Lock is active
- http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=205895
-
- Copy/paste operations between KDE and Perl/Tk applications
- on 64bit system did not work, patch by Petr Pajas
-
- Canvas grids: -color was documented, but only -fill was implemented.
- In future both is supported.
- http://rt.cpan.org/Ticket/Display.html?id=47132
-
- Patch for mingw-w64 gcc compiler, supplied by kmx
- http://rt.cpan.org/Public/Bug/Display.html?id=53467
-
-Documentation
- Documentation on "Perl/Tk and Unicode"
-
- Fixed cget/delete confusion in Entry.pod
- http://rt.cpan.org/Public/Bug/Display.html?id=50253
-
-Tk-804.028_501 release (2008-11-04)
-----------------------
-
-Fixes
- File permissions of the tarball seemed to be problematic under
- Windows Vista and Strawberry Perl 5.10.0.3, causing aborted builds.
- This is hopefully fixed now.
-
- Changed cygwin default to x11 (native MSWin32 port still does not
- work).
-
-New
- There's now an "examples" directory containing some useful scripts
- previously been elsewhere in the distribution.
-
-Documentation
- Documented ROText key bindings.
-
- New README for Strawberry Perl.
-
-Tests
- Prevent Event mini tests to be run when the rest of Tk is not tested,
- to avoid insignificant PASSes at cpantesters.
-
- More tests marked as TODO or SKIP.
-
-Tk-804.028_500 release (2008-10-01)
-----------------------
-
-Fixes
- Security fix for GIF reader (CVE-2006-4484, report and patch by
- Anicka Bernathova)
-
- Make sure Tk::MsgBox is not displayed before calling Show()
-
- Solved problems with fileevent on 64bit architectures (this also
- fixes a problem with POE)
-
- Makefile.PL updates (auto-creation of META.yml, added LICENSE, exit
- cleanly if prereqs are missing --- this is for cpan testers)
-
- Fixed typo in Tk::FBox
- http://rt.cpan.org/Public/Bug/Display.html?id=31989
-
- Added different location of rgb.txt on Mac OS X 10.5.1 systems
-
- Fixed a makedepend issue, reported by marek.rouchal
-
- A BusyRecurse issue [rt.cpan.org #32858]
-
- Fixed Tk::ColorEditor problem with OpenBSD (another rgb.txt location)
-
- clipboardGet was documented, but did not work (note that clipboard("get")
- always worked)
-
- Tk::After::Cancelled needs also a dummy cancel() method
-
- Fixed event handling for newer X servers
- http://rt.cpan.org/Public/Bug/Display.html?id=38746
-
- Permission issue [rt.cpan.org #39038]
-
- Support for changed regexp-related functions and structures in perl
- 5.11.x.
-
- Fix for: Tk::FileSelect fails to select file with "'" in file name
- (with new fileselect.t tests)
- http://rt.cpan.org/Public/Bug/Display.html?id=39096
-
- Fixed movement of cursor on insertations in Tk::TextUndo
- http://rt.cpan.org/Public/Bug/Display.html?id=34513
-
- Tk::Test fix for: skips lines when arrowing down in a window not
- exactly sized to a text
- http://rt.cpan.org/Public/Bug/Display.html?id=39343
-
- ErrorDialog fix for Windows (dialog was never displayed)
- http://rt.cpan.org/Public/Bug/Display.html?id=39417
-
- Use 'configure' for building libpng under Solaris.
-
-Tests
- Tests for signal handling (testing LangAsyncCheck introduced earlier)
-
- Various skips and $TODOs for broken (?) window managers and slow
- connections (for example -xscrollcommand-related, floating-point
- precision-related, signal availability and many more ...)
-
-Tk-804.028 release (2007-12-18)
-------------------
-
-Tests
-  Fixed some test problems.
-
-Tk-804.027_502 release (2007-12-04)
-----------------------
-
-New features
-  Merged with CPAN version of Tk::Tree
-
-  Tk::Animation now reads delay and disposal information from GIF file
-  (experimental, may change, needs an installed Image::Info)
-
-Fixes
-  Make sure canvas methods are really accessible in OnDestroy. This
-  fixes problems in the CPAN module Tk::LCD.
-
-  Some path-related problems fixed with Tk::DirTree.
-
-  Solved some Tk::ColorEditor issues (missing rgb.txt, multiple
-  chooseColor invocations)
-
-  Fixed some build problems under Windows.
-
-  Fixed possible memory corruption
-  (http://rt.cpan.org/Ticket/Display.html?id=24542)
-
-  Dash patches by Wolfgang Laun
-  (http://rt.cpan.org/Ticket/Display.html?id=11083)
-
-  hpux ia64 should now compile.
-
-  Tk::FBox: workaround for segfaults under threaded perl.
-
-  Fixed possible performance problem when using Tk::Balloon and
-  AutoLoader 5.63 is installed.
-
-Documentation
-  Documented missing page_widget method in Tk::NoteBook.
-
-Tests
-  Disabled more failing wm tests (notably on kwin).
-
-Tk-804.027_501 release (2007-09-22)
-----------------------
-
-Compiles and passes tests on
-  FreeBSD 6.2 (amd64) + perl5.8.8
-  FreeBSD 6.2 (amd64) + perl5.10.0 patch 31894
-  FreeBSD 6.1 (i386) + perl5.8.8
-  Linux (Debian) + perl5.8.8
-
-At some earlier point, there were success reports for the following
-configurations:
-
-* Solaris 8 (Sparc), gcc-4.0.3, perl-5.8.8 with
-  freetype-2.2.1, expat-2.0.0, libXft-2.1.11, fontconfig-2.4.1,
-  libXrender-0.9.2, renderproto-0.9.2, zlib-1.2.3, libjpeg-6b,
-  libpng-1.2.14
-
-* RedHat Enterprise Linux 3.0 update 8 (i686), gcc-4.0.3, perl-5.8.8 with
-  freetype-2.2.1, expat-2.0.0, libXft-2.1.11, fontconfig-2.4.1,
-  libXrender-0.9.2, renderproto-0.9.2, zlib-1.2.3, libjpeg-6b,
-  libpng-1.2.14
-
-* Windows, VC++ 6.0, perl-5.9.5
-
-New features
-  Implemented -overrelief,-repeatinterval,-repeatdelay for Tk::Button.
-
-  Additional item in the "widget" demonstration showing all Tk widgets.
-
-  Added BalloonInfo to NoteBook.
-
-  ptked: Encoding menu now with radiobuttons, also added some popular
-  encodings to menu.
-
-Fixes
-  Fix for not working 'hide entry' in HList.
-
-  HList: fixed errors with disabled entries and a entry named 0.
-
-  Various warning fixes.
-
-  Enable compiling of PNG-related files with Sun compiler.
-
-  Fixed setPalette and RecolorTree.
-
-  Make sure waitVariable exits if a waiting dialog is destroyed.
-
-  Again compiles under bleadperl.
-
-  Various fixes for 64bit platforms (e.g. property method, libpng
-  building).
-
-  Fixed situation when resizing a mainwindow containing a PNG image
-  crashed Tk Tcl/Tk bug 979239 fixed by George Peter Staplin, brought
-  to Perl/Tk by Franck Aniere.
-
-  Adapt path for getOpen/SaveFile's -initialfile and -initialdir to
-  the OS (patch provided by Roland Minner).
-
-  Fixed not working -dynamicgeometry in Tk::NoteBook.
-
-  Fixed zlib compilation problem under Windows (unistd.h does not
-  exist there). Reported by esskar.
-
-  Fixed configure problems on mixed 32/64 bit architectures, patch by
-  Steve Lidie.
-
-Documentation
-  Documented the Widget() method
-
-  Widget.pod: resorted methods alphabetically
-
-  Documented Tk::DialogBox::Exit
-
-Tests
-  New test script for Button widget, yet uncomplete (t/button-tcl.t)
-
-  New HList tests for show/hide
-
-  font.t is more robust if unexpected fonts are used.
-
-The complete log of changes can be get using
-
-    svn log https://svn.perl.org/modules/Tk/trunk
-
-Tk-804.027_500 release (2007-02-11)
-----------------------
-
-Compiles and passes tests on
-
-  FreeBSD 6.1 + perl5.8.8 + fontconfig 2.3.2
-  FreeBSD 6.1 + bleadperl + fontconfig 2.3.2
-  Linux (Debian) + perl5.8.8
-  Windows 2000 + Strawberry Perl 5.8.8 alpha 2
-  Mac OS X 10.4
-  Solaris 10 + perl5.8.4
-
-At some earlier point, there were successful builds with
-
-  cygwin 1.5.x + perl5.8.7 + fontconfig (X11 build only)
-  Solaris 8
-  Linux (RedHat 8.0) + perl5.8.0
-
-New features
-  The undocumented method font('subfonts') returns now more
-  diagnostics.
-
-  Library upgrades:
-    libpng from 1.2.5 to 1.2.12
-    zlib from 1.1.4 to 1.2.3
-
-  It's possible to use binary (and not anymore base64 encoded) -data
-  for GIF files.
-
-  New -cancel_button option for Tk::DialogBox
-
-Fixes
-  gedi accepts now X11 command line options.
-
-  Encode.pm is specified as a PREREQ_PM.
-
-  Fixed slow listbox itemconfigure.
-
-  Fixed array return of Tk::Text::get method.
-
-  Fixed Tk::BrowseEntry problem with -label* options, see
-  http://perlmonks.org/?node_id=590170
-
-  Introduced LangAsyncCheck, which fixes
-  http://rt.cpan.org/Ticket/Display.html?id=23879
-
-  Fixed http://bugs.activestate.com/show_bug.cgi?id=40231 (missing
-  default button indicator on win32 for Tk::DialogBox widgets)
-
-  Fixed http://bugs.activestate.com/show_bug.cgi?id=40217 (wm close
-  window button does not call the default button)
-
-  Fixed non-working Balloon attachments to individual menu items,
-  see http://board.perl-community.de/cgi-bin/ikonboard/ikonboard.cgi?act=ST;f=3;t=665
-  As a side effect, there is now a new method Tk::Menu::MasterMenu for
-  getting the master menu of a cloned menu.
-
-  Adjuster now works in DialogBoxes, see
-  http://groups.google.de/group/comp.lang.perl.tk/browse_frm/thread/5366757a4c6cd844/8ff9d1745d2b75b8
-
-  Fixed memory leak in after* callbacks, see
-  http://rt.perl.org/rt3/Ticket/Display.html?id=41130
-
-  Fixed Tk:: FBox to treat special files like sockets, pipes as files,
-  not as directories.
-
-  Fixed -at/-before/-after problem with Tk::HList.
-
-  Workaround for 'selection conversion left too many bytes
-  unconverted' aborts.
-
-Documentation
-  New Pod for Tk::MsgBox.
-
-  Created a CAVEATS section in Tk::Image for the FAQ about memory
-  leaks and images.
-
-  Added missing L<...> links.
-
-  Some minor Pod fixes.
-
-Tests
-  Make sure that tests won't be run if no X11 is running to prevent
-  unnecessary cpantesters reports.
-
-  New test for Text widget (t/text.t)
-
-  New test for scripts (t/exefiles.t)
-
-  New test for Tk::Adjuster (t/adjuster.t)
-
-  More Tk::FBox tests (e.g. chooseDirectory ...)
-
-  Tests are now more robust if another application has the global grab
-  (see catch_grabs in TkTest.pm).
-
-Tk-804.027-p4.patch.gz (2006-11-26)
-----------------------
-
-Compiles and passes tests on
-
-  FreeBSD 6.1 + perl5.8.8 + fontconfig 2.3.2
-  FreeBSD 6.1 + bleadperl + fontconfig 2.3.2
-  Linux Debian + perl5.8.8 + fontconfig 2.4.1
-  Solaris 8 + gcc-4.0.3 + perl-5.8.8 + fontconfig-2.4.1 (with two test
-    errors in font.t)
-
-I also had success with compiling under recent cygwin using the x11
-libraries a few days earlier.
-
-Fixes
-  XFT works now with recent fontconfig, no core dumps anymore.
-
-  Fix for segfault in t/regexp.t with perl 5.9.x. See also
-  http://www.xray.mpe.mpg.de/mailing-lists/perl5-porters/2006-02/msg00748.html
-  for a similar issue.
-
-  Workaround for core dumps when using -font=>undef.
-
-  Fixed wrong usage of $#{@...} which does not work anymore in
-  bleadperl.
-
-  Fixed Tk::Text movements wordstart and wordend in unicode content.
-
-  Better handling of undef in BrowseEntry widgets. Bug reported by
-  Puetz Kevin A.
-
-  A couple of compilation warning fixes.
-
-Tests
-  Continued text.t conversion.
-
-  More tests in font.t.
-
-  Fixed failing tests if no windows manager (under X11) is running.
-
-  Fixed some false test failures in listbox.t (font detection was
-  wrong).
-
-  Disabled fork.t and fileevent.t on cygwin (same like MSWin32).
-
-Tk-804.027-p3.patch.gz (2006-11-20)
-----------------------
-
-Compiles and passes tests on
-
-  FreeBSD 6.1 + perl5.8.8 + xorg 6.9.x + various window managers (fvwm2, twm, metacity ...)
-  Linux RedHat 8.0 + perl5.8.0 (one test failure in leak.t)
-  Linux RedHat 8.0 + perl5.8.7
-  MSWin32 + Strawberry Perl (5.8.8)
-
-There are some test failures with bleedperl, most of them
-Tie::Watch-related, which will be fixed in a next version of the
-patch.
-
-Incompatible changes
-  Return values of some Tk::Wm methods (e.g. aspect, wmGrid,
-  iconposition, resizable ...) were changed from returning tclish
-  lists (e.g. "1 2 3 4") to perlish lists (1,2,3,4). I believe the
-  return values of these methods are rarely used.
-
-  Tk::Wm::wmTracing needs argument for setting on/off, without
-  argument just return the current value.
-
-New features
-  The newest tkUnixWm.c from Tcl/Tk is now in the Perl/Tk code. This
-  adds (experimental?) support for wm attributes -topmost, -zoomed,
-  -fullscreen and other _NET_WM features (iconphoto) under Unix/X11.
-
-  Tk::Wm::stackorder was missing in Perl/Tk.
-
-  widget demonstration has a Ctrl-Q key binding.
-
-  ptksh: x is an alias for d (like in the perl debugger).
-  ptksh: use bold font for prompt.
-
-  Tk::Text: pasting selection with middle mouse sets cursor position now.
-  This is consistent with behaviour in other toolkits.
-
-  Tk::Widget: translated UnderlineAmpersand etc. functions.
-
-  Tk::MsgBox: again in Tk, completely new translation from the Tcl/Tk
-  original. Looks nicer and behaves better than messageBox through
-  Tk::DialogBox.
-
-Fixes
-  Fixed crashes of Perl/Tk applications when Gtk/Gnome applications
-  were started. See http://rt.cpan.org/Ticket/Display.html?id=16053
-
-  ptksh is not slow anymore when popping up history.
-  ptksh: use fixed font for text area.
-
-  Tk::FBox may handle paths with high-bit set.
-
-  Image and bitmap filenames with high-bit set work now. See
-  http://groups.google.com/group/comp.lang.perl.tk/msg/865b56226af23f7c
-
-  Minor Tk::TextList fixes, but still most tests fail.
-
-  Fixed some menu problems, see
-  http://rt.cpan.org/Public/Bug/Display.html?id=15677,
-  http://rt.cpan.org/Ticket/Display.html?id=6166
-
-  Title of tearoff menus now set correctly.
-
-  ptked may be started without initial filename.
-
-  gedi works again.
-  
-  Fixed some core dumps.
-
-  Tk::Listbox insert/delete does not leak memory anymore (well, not
-  that much). See
-  http://rt.cpan.org/Ticket/Display.html?id=12466
-
-  Building on RedHat systems works now, see
-  http://rt.cpan.org/Ticket/Display.html?id=6708
-
-  Tk::NoteBook fix for pages method, see
-  http://rt.cpan.org/Ticket/Display.html?id=8567
-
-  Tk::Canvas fix for -state => hidden issue, see
-  http://rt.cpan.org/Ticket/Display.html?id=4677
-
-Documentation
-  Tk::Widget::Walk is now documented.
-
-  Corrected installation path for Tk::Menu::Item.
-
-  Fixed invalid Pod syntax.
-
-Tests
-  Converted some tests from Test to Test::More
-
-  Enable unicode tests where possible.
-
-  Make all tests working with XFT=1.
-
-  New tests, converted from the Tcl counterparts: canvas.t, wm-tcl.t,
-  text.t (latter not completed yet)
-
-  00wmcheck.t: show user's window manager before starting tests.
-
-  (Almost) no test should request user positioning windows (for old
-  window managers like twm).
-
-  Some wm-dependent tests were marked as TODO tests.
-
-----------------------------------------------------------------------
-
 Within each 'release' time advances down the file, but most recent
 release is at the top.
 
-Change.log is generated from perforce database, it is therefore
-complete, but short on detail.
+Changes in *****
 
-Changes in Tk804.023
-	First public release of version based on Unicode aware core tk.
+* Added -ldnet to Makefile.PL (DEC Net library for ultrix)
+
+* Tweeked DoOneEvent to be more tolerant of 'strings' as flags.
 
 
-Historical changes in Tk800 branch to be reinstated here later.
+Changes in b11.02
+
+* Fix for K&R 'cc' (e.g. Sun's /bin/cc) compile.
+
+* 'Scrolled' scrollbars now only get packed (dynamically) when required.
+
+* Tweaks for perl5.002_01 
+
+* Tidied up basic_credentials stuff to HTML/Web.pm a bit
+
+* Brought Pod viewer up to date.
+
+* Fixed memory leak in Tk::Callback->new, highlighted by recent
+  'after' changes. 
+
+Changes in b11.01
+
+* Added ccflags to MMtry 'configure' tests so that trial compile
+  has same flags as real compile.
+
+* Added XQueryTree to Xlib (need it for Motif Drag&Drop hacking ;-))
+
+* Some tweaks to HList 
+
+* Demo patches from Steve.
+
+* Messed with Table to permit empty rows.
+
+* Added basic_credentials stuff to HTML/Web.pm 
+
+* Added selectionSet etc. aliases to Listbox.
+
+
+Changes in b11
+
+* Corrected initialization/malloc/free bug in Text Tag -data option.
+
+* Down graded ConfigDefault not to propagate 'default' values if 
+  ConfigSpec has 'undef' as default value. Changed default -foreground
+  -background to supplied by Tk::Derived to follow this model.
+  These changes allow subwidgets to default their own colours.
+  
+* Made '-class' universal and used it to set class for all Tk::Widgets.
+  Will allows Tix-like options db priming to affect subwidget defaults
+  (e.g. colours).
+
+* Messed with 'Menubar' class - now only exported decendants of 'Frame' and
+  auto-packs itself at top. Its Menubutton method looks for existing
+  menubutton of the supplied name, does maps ~Name to -underline
+  and passes -menuitems to the menu.
+
+* Adopted xpm3.4h for Pixmap/xpm 
+
+* Moved pTk's gettimeofday() tests up to top level myConfig.
+  Changed way C #define's are passed to code; now builds tkConfig.h 
+  and #include's it rather than passing lots of -DXXXX to the compiler.
+
+* Fixed infinite recursion on configure of DEFAULT options on derived widgets.
+
+* Fixed bad case of 'bit rot' in Sun drag&drop - it was broken at time of 
+  Tix code merge. Cleaned up the interface to it and added generic 'Local' 
+  drag&drop independent of Sun's. Drop is always via a selection, as 
+  both Sun's and Motif use that mechanism.
+
+   - 'Local' drop should allow emulation of Tix-like Drag&Drop.
+
+   - Works fine with olvwm4.1 under Solaris2.4.
+   - Works after a fashion under olvwm4.1 on SunOS4 - incoming drops sometimes 
+     fail. (Suspect bugs on 'xview' side...)
+   - SunOS4 olvwm3.* is even worse.
+   
+   - Need to add Motif methods when I can  decipher the protocol.
+
+* Various point fixes suggested to pTk list.
+
+Changes in b10
+
+* Hand-converted Tk::HList.pm from Graham Barr.
+
+* Tk::Font from Graham Barr, added XListFonts to Tk::Xlib to support this.
+
+* Cleaned up demos from Steve - thanks as always.
+
+* Cleaned up error message propagation:
+   - now use $widget->BackTrace('message')  rather than "croak" to get perl call
+     history into "stack trace" for ErrorDialog etc.
+   - Resolved "duplicate" messages to be result of perl5.002b2's $@ handling,
+     and adjusted glue to comprehend this.
+
+* Resolved netbsd problem with certain (unused, undefined) Tix 'extern's. 
+   - will try and remember to run checking scripts in future...
+
+* Added `a' version of tkGrid.c (to be included in tk4.1b*) which 
+  allows folks to play with SpecTcl GUI builder (so I am told).
+
+* Merged tk4.0p3 changes.
+
+* Tested under perl5.002b3
+   - located nasty bug when perl's stack grows (and therfore changes address)
+     during a call to Tk. e.g. if Button callback invoked perl code which
+     puts a large array on the stack. This may explain the 'FileSelect' 
+     bug.
+   - Still some risk in this area - will investigate further before production
+     release. 
+
+* Adopted $VERSION checking via .xs and DynaLoader.
+* Added checks to toplevel Makefile.PL for installed perl5.002.
+* Changed gettimeofday() calls to #define in tkPort.h - as yet 
+  no 'configure' test for right prototype.
+
+* Edited (previously non-distributed) doc/man* directories so that doc/*.ht 
+  relates to perl/Tk rather than Tcl/Tk.
+  May have missed some changes - proof reading by users requested ;-)
+
+* Changed Tk::BackgroundError to Tk::Error, allows C API BackgroundError 
+  to be used and makes documentation read better.
+
+* Cleaned up and adopted Steves mkmenu from Menubar2 as $menu->AddItems
+  and incoprorated into Menu's create process. 
+  Can now say $parent->Menu(-menuitems => [...]);
+  Can also also use method $menu->AddItems([...]) post creation.
+
+- pre testing occured here 
+
+* Fixed various build problems.
+
+* Removed lingering debug. 
+
+* Changed ConfigSpecs to handle 'aliases' e.g. -fg for -foreground
+  in a manner more like core widgets.
+
+* Implemented Tk::Widget::after as a wrapper on core Tk::after.
+  Auto-cancels afters when widget is destroyed.
+
+* Hook for above $widget->OnDestroy(callback) is also available for general
+  use. Arranges for callback to be called just before widget is destroyed.
+  Note that unlike bind('<Destroy>',...) the widget methods are still 
+  available. For example this allows Text to save modified contents.
+
+Changes in b9.01
+
+* Fixed missing function table entry which caused problems on AIX.
+
+* Removed spurious debug from 'place'.
+
+* Patch to ColorEditor.pm from Steve.
+
+Changes in b9
+
+* pod patches from Larry Virden, ColorEditor fix from Steve.
+
+* Applied AIX patch to tkImgPhoto.c - also added code to test signed-ness
+  of chars in general.
+
+* Added <HTML> at start of doc/*.ht files so Mosaic realises that is
+  what they are.
+
+* Added some checking on -*variable options - similar to use strict vars.
+
+* Tidied up Tk::Tiler to get requested size and border handling correct,
+  added configure options -rows and -columns.
+
+* Moved ConfigSpecs and related methods out of Tk::Frame to Tk::Derived 
+  to allow non-frame derived widgets. Tk::Frame now inherits from 
+  Tk::Derived and Tk::Widget.
+
+* re-Implemented Optionmenu using Tk::Derived - adding -command option
+  where -command is invoked when option is set.
+
+* Made leading '-' on core-widget configure options optional,
+  by changing compare code in tkConfig.c 
+  Similar changes in ConfigSpecs handling perl code in Tk/Derived.pm.
+
+* Changed names as per new script b9names which can be used
+  to update old applications.
+  b9names script script script...
+
+* Brought Ghostview sub-directory into line with changes in last few releases,
+  still needs polish.
+
+* New demos from Steve.
+
+* Modified glue code to allow -0+0 and similar geometry specs though
+  to Tk.
+
+* Tweaked Menu and Menubutton bindings and Unpost scheme
+
+* Merged tk4.0p2 C code changes
+
+* Removed setting of $ENV{'TK_LIBRARY'} - replaced most of uses (demos etc.)
+  of Tcl's $tk_library with Tk->findINC 
+
+* Abstracted case insensitive regexp's and changed tkText.c not to 
+  downcase pattern.
+
+* Common case $w->pack now returns $w. 
+
+* Merged Extended FileSelect from Steve.
+
+* Make Read-Only Text available as ROText
+
+* Fixed $w->Containing but which prevented dragging along a menubar.
+
+* Changed InheritThis to use 5.002's ->SUPER:: instead.
+
+* Re-worked Tk:IO a bit to use new "anonymous globs", and give access to 
+  child process pids.
+
+* Added simple Up,Down,Left,Right,Home,End bindings to Canvas.
+
+* Cleaned up clipboard bindings for Text/Entry/Listbox.
+
+* Did rest of nameSubmethod aliases etc. that Steve reported missing.
+
+* Implemented simple Tk::Table in perl (modeled on Tiler) as one 
+  ported from 'blt' core-dumps.
+
+* Used hash in 'new' to speed up creating names for a lot of widgets of 
+  same class, now O(1) not O(N) for Nth such widget.
+
+* Implemented 'tie' of scalars to conigure options as 'obvious' 
+  enhancement to Tk::Config class.
+
+* Adjusted tkGlue.c's handling of perl 'magic' to make above ties 
+  work in more cases. In particular using a tied -variable in a 
+  check- or radio-button now allows them to re-configure widgets.
+  (See table_demo).
+
+* Generalized Canvas bindings (above) to (AutoLoaded) methods in Tk::Widget 
+  usable by any widget which supports new-style [xy]view and does not need 
+  special arrow key handling. Used these in Table and Tiler.
+
+* Arranged for short-hand 'constructors' e.g. $w->Button(...) to use 
+  the delegate mechanism so that once a 'composite' has a default subwidget
+  (i.e. after its Populate) further widgets are created as children 
+  of the subwidget. This allows (for example) correct parentage of 
+  sub-windows of a ScrlText 'Frame'. 
+
+* Implemented TextUndo class derived from Text but re-defining ->insert and
+  ->delete to record their inverses on an 'undo' stack.
+  Changed toyedit to use this class.
+
+* Changed Tk::Config to be Tk::Configure - it makes 'tie' make more sense
+  and avoids confusion between Tk/Config.pm and perl's Config.pm
+
+* Moved demos to be their own sub-directory. Will allow more subtle
+  handling of #! line when that is in place and allows demos to 
+  be uninstalled separately
+
+* Merged Tix-4.0 (production) C code. Adopted Tix's tkWm and tkMenu
+  enhancements.
+
+Changes in b8
+
+* Adjusted handling of 'const' in pTk C code.
+
+* Changed delegation to really define AUTOLOADed delegate 
+  function avoids horrible overhead on each call.
+
+* Corrected Steve's long standing issue with inserting selection
+  with <2>. 
+
+* Fixed all the 'use Pretty' problems.
+
+* Merged tk4.0p1 patches
+
+* Added explicit Tk::focus in places to allow tab traversal etc.
+  of canvases which have their own focus method.
+
+* Added Optionmenu.pm
+
+* Divided Text bindings into two parts - one appropriate
+  for read-only Texts - to make it easier to derived HTML
+  stuff from Text.
+
+* Added ability to specify X11 location as
+  perl Makefile.PL X11=/path/to/X
+
+* Other things I have forgotten.
+
+Changes in b7
+
+* Added workround for perl bug in new C version Callback::Call called from 
+  perl in a loop (e.g. showed up in color_editor apply defaults).
+
+* Changed Makefile.PL's to allow build on OSF again
+
+* Changed enabling of -Werror for GCC to only occur where my home
+  directory exists.
+
+* Adjusted Frame.pm to comprehend that -colormap is create-time only 
+  option.
+
+* Applied John Outerhout patch to tkImgPhoto.c 
+
+* Enforced 14 character filename length limit on all files in MANIFEST.
+  Renamed 
+    ScrolledListbox -> ScrlListbox
+    FileSelector    -> FileSelect
+    LabledEntry     -> LabEntry
+    LabledRadio     -> LabRadio
+  >> INCOMPATIBLE <<
+
+* Fixed memory leak due to -textvariable 
+
+* Implemented Tcl_GetVar2 so that -fontmap and -colormap work
+  for canvas postscript option.
+  Added trivial postscript demo canvas_ps, and postscript print
+  option to widget demo 'plot' (Thanks Guy/Steve).
+
+Changes in b6
+
+* Merged production tk4.0 C code and doc files, and added
+  new winfo commands to Widget.pm
+
+* Demos updated from Steve as usual - thanks as always.
+
+* Changed Tk::Widget::new code so that Name => name pair can 
+  occur in any position.
+
+* Added a DoWhenIdle to ConfigChanged when a composite's configure
+  changes. Derived class can override this method to (for example)
+  repaint when all of a group of configures have occurred.
+  (Still experimental).
+
+* Fixed Canvas tags inquiry.
+
+* Changed 'WidgetClass' declaration scheme to something more readable (IMHO).
+  >>> INCOMPATIBLE <<<  (But WidgetClass is still there for now...)
+
+* Eliminated the string evals for constructor and convenience methods,
+  in favour of assigning to globs. 
+  >>> Requires perl5.001m for fixes to closures <<<
+
+* Automatically create @Tk::Xxxxx::Inherit::ISA (as per perlbot)
+  when a widget Construct occurs.
+  Provide Inherit method to use above.
+
+* Implemented Tk/perl hooks to allow Text regular expression matching
+  to work (using perl style regexps!)
+
+* Added Busy/Unbusy to inhibit events and display a cursor while
+  doing something that takes a while.
+
+* Continued evolution of Composite stuff, making ConfigSpecs
+  an array to allow defaults to be specified.
+  More types of configure now allowed.
+  Tk::Composite has gone, Tk::Frame is now the base class,
+  with Tk::Toplevel @ISA'ing Tk::Frame
+
+  Hacked all existing Composites to use new scheme,
+  partially functional FileSelector converted too.
+
+  >>> INCOMPATIBLE <<<
+
+* Eliminated dubious practice of pattern matching the package name
+  to decide on core Tk widget (an one or two other things).
+  Such things are now found via inheritcance.
+
+* Major overhaul of internals of tkGlue.c, fixed leaks and core dumps.
+  Added END block to Mainwindow.pm to cleanup after 'die'.
+
+* Permitted multiple MainWindow->new calls
+  this requires Tk->update style calls to change to $widget->update
+  >>> INCOMPATIBLE <<<
+
+* Started tkpod pod viewer
+
+Changes in b5
+
+* Fixed Photo dynamic loading problems highlighted by AIX.
+
+* Fixed warnings/errors on XFree() building Xlib.ft (SGI and others)
+
+* Fixed tear-off menus with Radio/Check button items.
+
+* Adopted Stephen's latest ColorEditor stuff.
+
+* Adapted Stephen's Composite.pm stuff, adding delegation of 
+  methods and configure stuff, and allowing Toplevel composites
+  without dummy Frames. Propogated style to ScrolledListbox, Dialog
+  and ErrorDialog. Tweaked (some of ) demos as well.
+
+* Merged tk4.0b4 C code and converted its 'man' pages to doc/*.html
+  Minor tweak to Tk.pm/Widget.pm for change of 'winfo allmapped' to
+  'winfo visible'.
+  More consequences of tk4.0b4 expected when further testing occurs.
+  (*.tcl -> *.pm audit *NOT* yet done.)
+
+* Moved 'xpm' library out of pTk and into Pixmap which is what uses it.
+
+* Changed whole approach to stdio 'cnt' that latest Configure
+  'broke' for linux.
+  Now simply define a function in tkGlue.c using perl's FILE_cnt() macro.
+
+* Removed perl patches from the distribution now that perl5.001l
+  is widely available, and patches were getting bulky.
+
+* Edited pTk/mTk/tkPack.c and  pTk/mTk/tkPlace.c so that their info
+  sub commands return usable perl lists.
+  Added convience methods $widget->packslaves and $widget->packinfo.
+
+* Fixed problem in Text 'search' which either rendered it non-functional,
+  or caused a segfault.
+
+* Changed way 'vtables' are declared to avoid problems with one 
+  Linix dld variant.
+
+* Incorporated Stephens conversion of tk4.04 style demos.
+
+* Converted palette.tcl and merged into Widget.pm 
+
+* Adopted code for myConfig that tries to locate X includes and 
+  library by looking for an xmkmf in $PATH.
+
+* Hacked Makefile.PL's to correctly build full-static tkperl
+  Added code to Tk.pm to supress used-once warnings on internal
+  variables.
+
+* Moved all the major widgets to be separately loadable
+
+* Tweak Composite stuff some more - it should still be considered
+  subject to change, but basic structure should be okay.
+   - Not all composites are in same style yet
+   - I may have missed some $cw->{-opt} changes to $cw->{Configure}{-opt}
+   - ConfigSpecs 'delagation' needs work to make the fact that 
+     a widget is a composite transparent to the user.
+     * In place are ways to direct -xxx to a subwidget->configure(-xxx)
+     * Need way to direct -xxx to a subwidget->configure(-yyy)
+     * Need way to direct -xxx to  somewidget->handler(-yyy)
+     * Need cget 
+     * Need to be able to use options 
+
+Changes in b4
+
+* An 'experimental' release which attempts to minimize startup time
+  and memory use by AutoLoading and Dynamicaly loading as much as possible.
+  As such it may be seriously damaged on machines which don't support dynamic
+  loading - such machines should probably stick to Tk-b3.
+  Needs a patch (supplied) to perl5.001e to make auto-loaded methods work.
+
+* A few fixes from Stephen Lidie to demos (Thanks again Stephen).
+
+* Removed most of the $w->IsXxxx tests following recent discussion 
+  by perl5-porters.
+
+* Other minor cleanups.
+
+
+
+

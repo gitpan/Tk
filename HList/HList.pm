@@ -1,47 +1,21 @@
-package Tk::HList;
+package Tk::HList; 
+use Tk qw(Ev);
+require DynaLoader;
 
-use vars qw($VERSION);
-$VERSION = '4.015'; # was: sprintf '4.%03d', q$Revision: #14 $ =~ /\D(\d+)\s*$/;
+@ISA = qw(DynaLoader Tk::Widget);
 
-use Tk qw(Ev $XS_VERSION);
-
-use base  qw(Tk::Widget);
-
-Construct Tk::Widget 'HList';
+Tk::Widget->Construct('HList');
 sub Tk::Widget::ScrlHList { shift->Scrolled('HList'=>@_) }
 
-bootstrap Tk::HList;
+bootstrap Tk::HList $Tk::VERSION; 
 
 sub Tk_cmd { \&Tk::hlist }
 
-sub CreateArgs
-{
- my ($package,$parent,$args) = @_;
- my @result = $package->SUPER::CreateArgs($parent,$args);
- my $columns = delete $args->{-columns};
- push(@result, '-columns' => $columns) if (defined $columns);
- return @result;
-}
+EnterMethods Tk::HList __FILE__,qw(add addchild anchor column
+                                   delete dragsite dropsite entrycget
+                                   entryconfigure geometryinfo hide item info
+                                   nearest see select selection show xview yview);
 
-Tk::Methods qw(add addchild anchor column
-               delete dragsite dropsite entrycget
-               entryconfigure geometryinfo indicator header hide item info
-               nearest see select selection show xview yview);
-
-use Tk::Submethods ( 'delete'    => [qw(all entry offsprings siblings)],
-                     'header'    => [qw(configure cget create delete exists size)],
-                     'indicator' => [qw(configure cget create delete exists size)],
-                     'info'      => [qw(anchor bbox children data dragsite
-                                     dropsite exists hidden item next parent prev
-                                     selection)],
-                     'item'      => [qw(configure cget create delete exists)],
-                     'selection' => [qw(clear get includes set)],
-                     'anchor'    => [qw(clear set)],
-                     'column'    => [qw(width)],
-                   );
-
-# This is undocumented, but worked until 804.027:
-sub hideEntry { shift->hide('entry', @_) }
 
 sub ClassInit
 {
@@ -49,19 +23,33 @@ sub ClassInit
 
  $mw->bind($class,'<ButtonPress-1>',[ 'Button1' ] );
  $mw->bind($class,'<Shift-ButtonPress-1>',[ 'ShiftButton1' ] );
- $mw->bind($class,'<Control-ButtonRelease-1>','Control_ButtonRelease_1');
- $mw->bind($class,'<ButtonRelease-1>','ButtonRelease_1');
- $mw->bind($class,'<Double-ButtonRelease-1>','NoOp');
+ $mw->bind($class,'<Control-ButtonRelease-1>', sub {} );
+ $mw->bind($class,'<ButtonRelease-1>',
+		sub
+		 {
+		  my $w = shift;
+		  my $Ev = $w->XEvent;
+		  $w->CancelRepeat
+		      if($w->cget('-selectmode') ne "dragdrop");
+		  $w->ButtonRelease1($Ev);
+		 });
  $mw->bind($class,'<B1-Motion>',[ 'Button1Motion' ] );
  $mw->bind($class,'<B1-Leave>',[ 'AutoScan' ] );
 
  $mw->bind($class,'<Double-ButtonPress-1>',['Double1']);
 
- $mw->bind($class,'<Control-B1-Motion>','Control_B1_Motion');
+ $mw->bind($class,'<Control-B1-Motion>', sub {} );
  $mw->bind($class,'<Control-ButtonPress-1>',['CtrlButton1']);
  $mw->bind($class,'<Control-Double-ButtonPress-1>',['CtrlButton1']);
 
- $mw->bind($class,'<B1-Enter>','B1_Enter');
+ $mw->bind($class,'<B1-Enter>',
+		sub
+		 {
+		  my $w = shift;
+		  my $Ev = $w->XEvent;
+		  $w->CancelRepeat
+		      if($w->cget('-selectmode') ne "dragdrop");
+		 });
 
  $mw->bind($class,'<Up>',['UpDown', 'prev']);
  $mw->bind($class,'<Down>',['UpDown', 'next']);
@@ -72,43 +60,13 @@ sub ClassInit
  $mw->bind($class,'<Left>', ['LeftRight', 'left']);
  $mw->bind($class,'<Right>',['LeftRight', 'right']);
 
- $mw->PriorNextBind($class);
- $mw->MouseWheelBind($class);
+ $mw->bind($class,'<Prior>', sub {shift->yview('scroll', -1, 'pages') } );
+ $mw->bind($class,'<Next>',  sub {shift->yview('scroll',  1, 'pages') } );
 
  $mw->bind($class,'<Return>', ['KeyboardActivate']);
  $mw->bind($class,'<space>',  ['KeyboardBrowse']);
- $mw->bind($class,'<Home>',   ['KeyboardHome']);
- $mw->bind($class,'<End>',    ['KeyboardEnd']);
-
- $mw->YMouseWheelBind($class);
- $mw->XMouseWheelBind($class);
 
  return $class;
-}
-
-sub Control_ButtonRelease_1
-{
-}
-
-sub ButtonRelease_1
-{
- my $w = shift;
- my $Ev = $w->XEvent;
- $w->CancelRepeat
- if($w->cget('-selectmode') ne 'dragdrop');
- $w->ButtonRelease1($Ev);
-}
-
-sub Control_B1_Motion
-{
-}
-
-sub B1_Enter
-{
- my $w = shift;
- my $Ev = $w->XEvent;
- $w->CancelRepeat
- if($w->cget('-selectmode') ne 'dragdrop');
 }
 
 sub Button1
@@ -116,78 +74,56 @@ sub Button1
  my $w = shift;
  my $Ev = $w->XEvent;
 
- delete $w->{'shiftanchor'};
- delete $w->{tixindicator};
+ delete $w->{'shiftanchor'}; 
 
- $w->focus() if($w->cget('-takefocus'));
+ $w->focus()
+   if($w->cget("-takefocus"));
 
- my $mode = $w->cget('-selectmode');
+ my $mode = $w->cget("-selectmode");
 
- if ($mode eq 'dragdrop')
+ if ($mode eq "dragdrop")
   {
    # $w->Send_WaitDrag($Ev->y);
    return;
   }
 
- my $ent = $w->GetNearest($Ev->y, 1);
+ my $ent = $w->GetNearest($Ev->y);
 
- if (!defined($ent) || !length($ent))
-  {
-    $w->selectionClear;
-    $w->anchorClear;
-    return;
-  }
+ return unless( $ent );
 
- my @info = $w->info('item',$Ev->x, $Ev->y);
- if (@info)
-  {
-   die 'Assert' unless $info[0] eq $ent;
-  }
- else
-  {
-   @info = $ent;
-  }
+ my $browse = 0;
 
- if (defined($info[1]) && $info[1] eq 'indicator')
+ if($mode eq "single")
   {
-   $w->{tixindicator} = $ent;
-   $w->Callback(-indicatorcmd => $ent, '<Arm>');
+   $w->anchor('set', $ent);
   }
- else
+ elsif($mode eq "browse")
   {
-   my $browse = 0;
-
-   if ($mode eq 'single')
-    {
-     $w->anchorSet($ent);
-    }
-   elsif ($mode eq 'browse')
-    {
-     $w->anchorSet($ent);
-     $w->selectionClear;
-     $w->selectionSet($ent);
-     $browse = 1;
-    }
-   elsif ($mode eq 'multiple')
-    {
-     $w->selectionClear;
-     $w->anchorSet($ent);
-     $w->selectionSet($ent);
-     $browse = 1;
-    }
-   elsif ($mode eq 'extended')
-    {
-     $w->anchorSet($ent);
-     $w->selectionClear;
-     $w->selectionSet($ent);
-     $browse = 1;
-    }
-
-   if ($browse)
-    {
-     $w->Callback(-browsecmd => @info);
-    }
+   $w->anchor('set', $ent);
+   $w->select('clear' );
+   $w->select('set', $ent);
+   $browse = 1;
   }
+ elsif($mode eq "multiple")
+  {
+   $w->select('clear');
+   $w->anchor('set', $ent);
+   $w->select('set', $ent);
+   $browse = 1;
+  }
+ elsif($mode eq "extended")
+  {
+   $w->anchor('set', $ent);
+   $w->select('clear');
+   $w->select('set', $ent);
+   $browse = 1;
+  }
+ 
+ if ($browse)
+  {
+   $w->Callback(-browsecmd => $ent);
+  }
+ 
 }
 
 sub ShiftButton1
@@ -195,117 +131,87 @@ sub ShiftButton1
  my $w = shift;
  my $Ev = $w->XEvent;
 
- my $to = $w->GetNearest($Ev->y, 1);
+ my $to = $w->GetNearest($Ev->y);
 
- delete $w->{'shiftanchor'};
- delete $w->{tixindicator};
+ delete $w->{'shiftanchor'}; 
 
- return unless (defined($to) and length($to));
+ return unless($to);
 
  my $mode = $w->cget('-selectmode');
 
- if($mode eq 'extended' or $mode eq 'multiple')
+ if($mode eq "extended")
   {
    my $from = $w->info('anchor');
-   if(defined $from)
+   if($from)
     {
-     $w->selectionClear;
-     $w->selectionSet($from, $to);
+     $w->select('clear');
+     $w->select('set', $from, $to);
     }
    else
     {
-     $w->anchorSet($to);
-     $w->selectionClear;
-     $w->selectionSet($to);
+     $w->anchor('set', $to);
+     $w->select('clear');
+     $w->select('set', $to);
     }
   }
 }
 
 sub GetNearest
 {
- my ($w,$y,$undefafterend) = @_;
+ my ($w,$y) = @_;
+
  my $ent = $w->nearest($y);
- if (defined $ent)
-  {
-   if ($undefafterend)
-    {
-     my $borderwidth = $w->cget('-borderwidth');
-     my $highlightthickness = $w->cget('-highlightthickness');
-     my $bottomy = ($w->infoBbox($ent))[3];
-     $bottomy += $borderwidth + $highlightthickness;
-     if ($w->header('exist', 0))
-      {
-       $bottomy += $w->header('height');
-      }
-     if ($y > $bottomy)
-      {
-       #print "$y > $bottomy\n";
-       return undef;
-      }
-    }
-   my $state = $w->entrycget($ent, '-state');
-   return $ent if (!defined($state) || $state ne 'disabled');
-  }
- return undef;
+          
+ undef $ent
+   if($ent && $w->entrycget($ent, "-state") eq "disabled");
+
+ $ent;
 }
 
 sub ButtonRelease1
 {
  my ($w, $Ev) = @_;
 
- delete $w->{'shiftanchor'};
+ delete $w->{'shiftanchor'}; 
 
  my $mode = $w->cget('-selectmode');
 
- if($mode eq 'dragdrop')
+ if($mode eq "dragdrop")
   {
 #   $w->Send_DoneDrag();
    return;
   }
 
  my ($x, $y) = ($Ev->x, $Ev->y);
- my $ent = $w->GetNearest($y, 1);
+ my $ent = $w->GetNearest($y);
 
- if (!defined($ent) and $mode eq 'single')
+ return unless($ent);
+
+ if($x < 0 || $y < 0 || $x > $w->width || $y > $w->height)
   {
-     my $ent = $w->info('selection');
-     if (defined $ent)
-      {
-        $w->anchorSet($ent);
-      }
-  }
- return unless (defined($ent) and length($ent));
+   $w->select('clear');
 
- if (exists $w->{tixindicator})
+   return if($mode eq "single" || $mode eq "browse")
+
+  }
+ else
   {
-   return unless delete($w->{tixindicator}) eq $ent;
-   my @info = $w->info('item',$Ev->x, $Ev->y);
-   if(defined($info[1]) && $info[1] eq 'indicator')
+   if($mode eq "single" || $mode eq "browse")
     {
-     $w->Callback(-indicatorcmd => $ent, '<Activate>');
+     $w->anchor('set', $ent);
+     $w->select('clear');
+     $w->select('set', $ent);
+
     }
-   else
+   elsif($mode eq "multiple")
     {
-     $w->Callback(-indicatorcmd => $ent, '<Disarm>');
+     $w->select('set', $ent);
     }
-   return;
+   elsif($mode eq "extended")
+    {
+     $w->select('set', $ent);
+    }
   }
-
-  if($mode eq 'single' || $mode eq 'browse')
-   {
-    $w->anchorSet($ent);
-    $w->selectionClear;
-    $w->selectionSet($ent);
-
-   }
-  elsif($mode eq 'multiple')
-   {
-    $w->selectionSet($ent);
-   }
-  elsif($mode eq 'extended')
-   {
-    $w->selectionSet($ent);
-   }
 
  $w->Callback(-browsecmd =>$ent);
 }
@@ -314,57 +220,42 @@ sub Button1Motion
 {
  my $w = shift;
  my $Ev = $w->XEvent;
- return unless defined $Ev;
 
- delete $w->{'shiftanchor'};
+ delete $w->{'shiftanchor'}; 
 
  my $mode = $w->cget('-selectmode');
 
- if ($mode eq 'dragdrop')
+ if ($mode eq "dragdrop")
   {
 #   $w->Send_StartDrag();
    return;
   }
 
- my $ent;
- if (defined $w->info('anchor'))
-  {
-   $ent = $w->GetNearest($Ev->y);
-  }
- else
-  {
-   $ent = $w->GetNearest($Ev->y, 1);
-  }
- return unless (defined($ent) and length($ent));
+ my $ent = $w->GetNearest($Ev->y);
 
- if(exists $w->{tixindicator})
-  {
-   my $event_type = $w->{tixindicator} eq $ent ? '<Arm>' : '<Disarm>';
-   $w->Callback(-indicatorcmd => $w->{tixindicator}, $event_type );
-   return;
-  }
+ return unless($ent);
 
- if ($mode eq 'single')
+ if($mode eq "single")
   {
-   $w->anchorSet($ent);
+   $w->anchor('set', $ent);
   }
- elsif ($mode eq 'multiple' || $mode eq 'extended')
+ elsif($mode eq "multiple" || $mode eq "extended")
   {
    my $from = $w->info('anchor');
-   if(defined $from)
+   if($from)
     {
-     $w->selectionClear;
-     $w->selectionSet($from, $ent);
+     $w->select('clear');
+     $w->select('set', $from, $ent);
     }
    else
     {
-     $w->anchorSet($ent);
-     $w->selectionClear;
-     $w->selectionSet($ent);
+     $w->anchor('set', $ent);
+     $w->select('clear');
+     $w->select('set', $ent);
     }
   }
 
- if ($mode ne 'single')
+ if($mode ne "single")
   {
    $w->Callback(-browsecmd =>$ent);
   }
@@ -375,17 +266,16 @@ sub Double1
  my $w = shift;
  my $Ev = $w->XEvent;
 
- delete $w->{'shiftanchor'};
+ delete $w->{'shiftanchor'}; 
 
- my $ent = $w->GetNearest($Ev->y, 1);
+ my $ent = $w->GetNearest($Ev->y);
 
- return unless (defined($ent) and length($ent));
+ return unless($ent);
 
- $w->anchorSet($ent)
-	unless(defined $w->info('anchor'));
+ $w->anchor('set', $ent)
+	unless($w->info('anchor'));
 
- $w->selectionSet($ent);
-
+ $w->select('set', $ent);
  $w->Callback(-command => $ent);
 }
 
@@ -394,17 +284,17 @@ sub CtrlButton1
  my $w = shift;
  my $Ev = $w->XEvent;
 
- delete $w->{'shiftanchor'};
+ delete $w->{'shiftanchor'}; 
 
- my $ent = $w->GetNearest($Ev->y, 1);
+ my $ent = $w->GetNearest($Ev->y);
 
- return unless (defined($ent) and length($ent));
+ return unless( $ent );
 
  my $mode = $w->cget('-selectmode');
 
- if($mode eq 'extended')
+ if($mode eq "extended")
   {
-   $w->anchorSet($ent) unless( defined $w->info('anchor') );
+   $w->anchor('set', $ent) unless( $w->info('anchor') );
 
    if($w->select('includes', $ent))
     {
@@ -412,7 +302,7 @@ sub CtrlButton1
     }
    else
     {
-     $w->selectionSet($ent);
+     $w->select('set', $ent);
     }
    $w->Callback(-browsecmd =>$ent);
   }
@@ -426,15 +316,15 @@ sub UpDown
  my $done = 0;
  my $anchor = $w->info('anchor');
 
- delete $w->{'shiftanchor'};
+ delete $w->{'shiftanchor'}; 
 
- unless( defined $anchor )
+ unless( $anchor )
   {
-   $anchor = ($w->info('children'))[0];
+   $anchor = ($w->info('children'))[0] || "";
 
-   return unless (defined($anchor) and length($anchor));
+   return unless( $anchor );
 
-   if($w->entrycget($anchor, '-state') ne 'disabled')
+   if($w->entrycget($anchor, '-state') ne "disabled")
     {
      # That's a good anchor
      $done = 1;
@@ -453,24 +343,24 @@ sub UpDown
  while(!$done)
   {
    $ent = $w->info($spec, $ent);
-   last unless( defined $ent );
-   next if( $w->entrycget($ent, '-state') eq 'disabled' );
+   last unless( $ent );
+   next if( $w->entrycget($ent, '-state') eq "disabled" );
    next if( $w->info('hidden', $ent) );
    last;
   }
 
- unless( defined $ent )
+ unless( $ent )
   {
    $w->yview('scroll', $spec eq 'prev' ? -1 : 1, 'unit');
    return;
   }
 
- $w->anchorSet($ent);
+ $w->anchor('set', $ent);
  $w->see($ent);
 
- if($w->cget('-selectmode') ne 'single')
+ if($w->cget('-selectmode') ne "single")
   {
-   $w->selectionClear;
+   $w->select('clear');
    $w->selection('set', $ent);
    $w->Callback(-browsecmd =>$ent);
   }
@@ -484,23 +374,23 @@ sub ShiftUpDown
  my $mode = $w->cget('-selectmode');
 
  return $w->UpDown($spec)
-   if($mode eq 'single' || $mode eq 'browse');
+   if($mode eq "single" || $mode eq "browse");
 
  my $anchor = $w->info('anchor');
 
- return $w->UpDown($spec) unless (defined($anchor) and length($anchor));
+ return $w->UpDown($spec) unless( $anchor );
 
  my $done = 0;
 
- $w->{'shiftanchor'} = $anchor unless( $w->{'shiftanchor'} );
+ $w->{'shiftanchor'} = $anchor unless( $w->{'shiftanchor'} ); 
 
  my $ent = $w->{'shiftanchor'};
 
  while( !$done )
   {
    $ent = $w->info($spec, $ent);
-   last unless( defined $ent );
-   next if( $w->entrycget($ent, '-state') eq 'disabled' );
+   last unless( $ent );
+   next if( $w->entrycget($ent, '-state') eq "disabled" );
    next if( $w->info('hidden', $ent) );
    last;
   }
@@ -511,12 +401,12 @@ sub ShiftUpDown
    return;
   }
 
- $w->selectionClear;
+ $w->select('clear');
  $w->selection('set', $anchor, $ent);
  $w->see($ent);
 
- $w->{'shiftanchor'} = $ent;
-
+ $w->{'shiftanchor'} = $ent; 
+ 
  $w->Callback(-browsecmd =>$ent);
 }
 
@@ -525,17 +415,13 @@ sub LeftRight
  my $w = shift;
  my $spec = shift;
 
- delete $w->{'shiftanchor'};
+ delete $w->{'shiftanchor'}; 
 
  my $anchor = $w->info('anchor');
 
- unless(defined $anchor)
+ unless($anchor)
   {
-   $anchor = ($w->info('children'))[0]
-  }
- unless(defined $anchor)
-  {
-   $anchor = '';
+   $anchor = ($w->info('children'))[0] || "";
   }
 
  my $done = 0;
@@ -545,55 +431,41 @@ sub LeftRight
   {
    my $e = $ent;
 
-   if($spec eq 'left')
+   if($spec eq "left")
     {
      $ent = $w->info('parent', $e);
 
      $ent = $w->info('prev', $e)
-       unless(defined $ent && $w->entrycget($ent, '-state') ne 'disabled')
+       unless($ent && $w->entrycget($ent, '-state') ne "disabled")
     }
    else
     {
      $ent = ($w->info('children', $e))[0];
 
      $ent = $w->info('next', $e)
-       unless(defined $ent && $w->entrycget($ent, '-state') ne 'disabled')
+       unless($ent && $w->entrycget($ent, '-state') ne "disabled")
     }
 
-   last unless( defined $ent );
-   last if($w->entrycget($ent, '-state') ne 'disabled');
+   last unless( $ent );
+   last if($w->entrycget($ent, '-state') ne "disabled");
   }
 
- unless( defined $ent )
+ unless( $ent )
   {
-   $w->xview('scroll', $spec eq 'left' ? -1 : 1, 'unit');
+   $w->xview('scroll', $spec eq "left" ? -1 : 1, 'unit');
    return;
   }
 
- $w->anchorSet($ent);
+ $w->anchor('set', $ent);
  $w->see($ent);
 
- if($w->cget('-selectmode') ne 'single')
+ if($w->cget('-selectmode') ne "single")
   {
-   $w->selectionClear;
-   $w->selectionSet($ent);
+   $w->select('clear');
+   $w->selection('set', $ent);
 
    $w->Callback(-browsecmd =>$ent);
   }
-}
-
-sub KeyboardHome
-{
- my $w = shift;
- $w->yview('moveto' => 0);
- $w->xview('moveto' => 0);
-}
-
-sub KeyboardEnd
-{
- my $w = shift;
- $w->yview('moveto' => 1);
- $w->xview('moveto' => 0);
 }
 
 sub KeyboardActivate
@@ -602,14 +474,13 @@ sub KeyboardActivate
 
  my $anchor = $w->info('anchor');
 
- return unless (defined($anchor) and length($anchor));
+ return unless( $anchor );
 
  if($w->cget('-selectmode'))
   {
-   $w->selectionClear;
-   $w->selectionSet($anchor);
+   $w->select('clear');
+   $w->select('set', $anchor);
   }
-
  $w->Callback(-command => $anchor);
 }
 
@@ -619,33 +490,25 @@ sub KeyboardBrowse
 
  my $anchor = $w->info('anchor');
 
- return unless (defined($anchor) and length($anchor));
-
- if ($w->indicatorExists($anchor))
-  {
-   $w->Callback(-indicatorcmd => $anchor);
-  }
+ return unless( $anchor );
 
  if($w->cget('-selectmode'))
   {
-   $w->selectionClear;
-   $w->selectionSet($anchor);
+   $w->select('clear');
+   $w->select('set', $anchor);
   }
  $w->Callback(-browsecmd =>$anchor);
 }
 
 sub AutoScan
 {
- my ($w,$x,$y) = @_;
+ my $w = shift;
 
- return if ($w->cget('-selectmode') eq 'dragdrop');
- if (@_ < 3)
-  {
-   my $Ev = $w->XEvent;
-   return unless defined $Ev;
-   $y = $Ev->y;
-   $x = $Ev->x;
-  }
+ return if($w->cget('-selectmode') eq "dragdrop");
+ 
+ my $Ev = $w->XEvent;
+ my $y = $Ev->y;
+ my $x = $Ev->x;
 
  if($y >= $w->height)
   {
@@ -667,42 +530,10 @@ sub AutoScan
   {
    return;
   }
- $w->RepeatId($w->SUPER::after(50,[ AutoScan => $w, $x, $y ]));
+
+ $w->RepeatId($w->after(50,"AutoScan",$w));
  $w->Button1Motion;
 }
 
-sub children
-{
- # Tix has core-tk window(s) which are not a widget(s)
- # the generic code returns these as an "undef"
- my $w = shift;
- my @info = grep(defined($_),$w->winfo('children'));
- @info;
-}
-
-sub BalloonInfo
-{
- my ($listbox,$balloon,$X,$Y,@opt) = @_;
- my $e = $listbox->XEvent;
- return if !$e;
- my $path = $listbox->GetNearest($e->y, 1);
- $path = '' unless defined($path);
- foreach my $opt (@opt)
-  {
-   my $info = $balloon->GetOption($opt,$listbox);
-   if ($opt =~ /^-(statusmsg|balloonmsg)$/
-       && UNIVERSAL::isa($info,'HASH'))
-    {
-     $balloon->Subclient($path);
-     if (defined $info->{$path})
-      {
-       return $info->{$path};
-      }
-     return '';
-    }
-   return $info if (defined $info);
-  }
- return '';
-}
-
 1;
+

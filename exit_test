@@ -1,0 +1,5 @@
+#!/usr/local/bin/perl -w
+
+require Tk;
+
+Tk::exit(0);

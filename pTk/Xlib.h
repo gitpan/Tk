@@ -1,7 +1,6 @@
 #ifndef _XLIB
 #define _XLIB
 #ifndef _XLIB_H_
-#ifndef _X11_XLIB_H_
 extern XFontStruct *XLoadQueryFont  _ANSI_ARGS_((Display *, const char *));
 extern XModifierKeymap *XGetModifierMapping  _ANSI_ARGS_((Display *));
 extern XImage *XCreateImage  _ANSI_ARGS_((Display *, Visual *, unsigned int, int, int, char *, unsigned int, unsigned int, int, int));
@@ -12,10 +11,11 @@ extern char *XKeysymToString  _ANSI_ARGS_((KeySym));
 extern Atom XInternAtom  _ANSI_ARGS_((Display *, const char *, int));
 extern Colormap XCreateColormap  _ANSI_ARGS_((Display *, Window, Visual *, int));
 extern Cursor XCreatePixmapCursor  _ANSI_ARGS_((Display *, Pixmap, Pixmap, XColor *, XColor *, unsigned int, unsigned int));
-extern Cursor XCreateGlyphCursor  _ANSI_ARGS_((Display *, Font, Font, unsigned int, unsigned int, XColor const *, XColor const *));
+extern Cursor XCreateGlyphCursor  _ANSI_ARGS_((Display *, Font, Font, unsigned int, unsigned int, XColor *, XColor *));
 extern Font XLoadFont  _ANSI_ARGS_((Display *, const char *));
 extern GC XCreateGC  _ANSI_ARGS_((Display *, Drawable, long unsigned int, XGCValues *));
 extern GContext XGContextFromGC  _ANSI_ARGS_((GC));
+extern Pixmap XCreatePixmap  _ANSI_ARGS_((Display *, Drawable, unsigned int, unsigned int, unsigned int));
 extern Pixmap XCreateBitmapFromData  _ANSI_ARGS_((Display *, Drawable, const char *, unsigned int, unsigned int));
 extern Window XCreateWindow  _ANSI_ARGS_((Display *, Window, int, int, unsigned int, unsigned int, unsigned int, int, unsigned int, Visual *, long unsigned int, XSetWindowAttributes *));
 extern Atom *XListProperties  _ANSI_ARGS_((Display *, Window, int *));
@@ -67,6 +67,7 @@ extern int XFreeCursor  _ANSI_ARGS_((Display *, Cursor));
 extern int XFreeFont  _ANSI_ARGS_((Display *, XFontStruct *));
 extern int XFreeGC  _ANSI_ARGS_((Display *, GC));
 extern int XFreeModifiermap  _ANSI_ARGS_((XModifierKeymap *));
+extern int XFreePixmap  _ANSI_ARGS_((Display *, Pixmap));
 extern int XGetFontProperty  _ANSI_ARGS_((XFontStruct *, Atom, long unsigned int *));
 extern int XGetGeometry  _ANSI_ARGS_((Display *, Drawable, Window *, int *, int *, unsigned int *, unsigned int *, unsigned int *, unsigned int *));
 extern int XGetInputFocus  _ANSI_ARGS_((Display *, Window *, int *));
@@ -76,7 +77,6 @@ extern int XGrabKeyboard  _ANSI_ARGS_((Display *, Window, int, int, int, Time));
 extern int XGrabPointer  _ANSI_ARGS_((Display *, Window, int, unsigned int, int, int, Window, Cursor, Time));
 extern int XGrabServer  _ANSI_ARGS_((Display *));
 extern int XLookupColor  _ANSI_ARGS_((Display *, Colormap, const char *, XColor *, XColor *));
-extern int XLowerWindow  _ANSI_ARGS_((Display *, Window));
 extern int XMapWindow  _ANSI_ARGS_((Display *, Window));
 extern int XMoveResizeWindow  _ANSI_ARGS_((Display *, Window, int, int, unsigned int, unsigned int));
 extern int XMoveWindow  _ANSI_ARGS_((Display *, Window, int, int));
@@ -97,7 +97,6 @@ extern int XSendEvent  _ANSI_ARGS_((Display *, Window, int, long int, XEvent *))
 extern int XSetClipMask  _ANSI_ARGS_((Display *, GC, Pixmap));
 extern int XSetClipOrigin  _ANSI_ARGS_((Display *, GC, int, int));
 extern int XSetCommand  _ANSI_ARGS_((Display *, Window, char **, int));
-extern int XSetDashes _ANSI_ARGS_((Display *, GC, int, const char *, int));
 extern int XSetForeground  _ANSI_ARGS_((Display *, GC, long unsigned int));
 extern int XSetIconName  _ANSI_ARGS_((Display *, Window, const char *));
 extern int XSetInputFocus  _ANSI_ARGS_((Display *, Window, int, Time));
@@ -142,10 +141,6 @@ extern int XChangeGC _ANSI_ARGS_(( Display*, GC, unsigned long, XGCValues *));
 extern char **XListFonts _ANSI_ARGS_(( Display*, const char *, int, int *));
 extern int XFreeFontNames _ANSI_ARGS_((char **));
 extern Window XGetSelectionOwner _ANSI_ARGS_((Display *, Atom));
-extern int XRectInRegion _ANSI_ARGS_((Region,int,int,unsigned,unsigned));
-extern int XSubtractRegion _ANSI_ARGS_((Region, Region, Region));
-#endif /* _X11_XLIB_H_ */
 #endif /* _XLIB_H_ */
 extern int _XInitImageFuncPtrs _ANSI_ARGS_((XImage *image));
 #endif /* _XLIB */
-

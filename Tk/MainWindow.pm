@@ -1,159 +1,58 @@
-# Copyright (c) 1995-2003 Nick Ing-Simmons. All rights reserved.
-# This program is free software; you can redistribute it and/or
-# modify it under the same terms as Perl itself.
-package Tk::MainWindow;
-use base qw(Tk::Toplevel);
-BEGIN { @MainWindow::ISA = 'Tk::MainWindow' }
-
-use strict;
-
-use vars qw($VERSION);
-$VERSION = '4.015'; # was: sprintf '4.%03d', q$Revision: #12 $ =~ /\D(\d+)\s*$/;
-
-use Tk::CmdLine;
-use Tk qw(catch);
+package MainWindow;
+require AutoLoader;
+require Tk;
 require Tk::Toplevel;
 
+use Getopt::Long qw(GetOptions);
 use Carp;
 
-$| = 1;
+@ISA = qw(Tk::Toplevel);
 
-my %Windows = ();
+my $pid = $$;
 
-sub CreateArgs
-{
- my ($class,$args) = @_;
- my $cmd = Tk::CmdLine->CreateArgs();
- my $key;
- foreach $key (keys %$cmd)
-  {
-   $args->{$key} = $cmd->{$key} unless exists $args->{$key};
-  }
- my %result = $class->SUPER::CreateArgs(undef,$args);
- my $name = delete($args->{'-name'});
- unless (Tk::tainting)
-  {
-   $ENV{'DISPLAY'} = ':0' unless (exists $ENV{'DISPLAY'});
-   $result{'-screen'} = $ENV{'DISPLAY'} unless exists $result{'-screen'};
-  }
- return (-name => "\l$name",%result);
-}
+my @Windows = ();
 
 sub new
 {
  my $package = shift;
- if (@_ > 0 && $_[0] =~ /:\d+(\.\d+)?$/)
-  {
-   carp "Usage $package->new(-screen => '$_[0]' ...)" if $^W;
-   unshift(@_,'-screen');
-  }
- croak('Odd number of args'."$package->new(" . join(',',@_) .')') if @_ % 2;
- my %args = @_;
-
- my $top = eval { bless Create($package->CreateArgs(\%args)), $package };
- croak($@ . "$package->new(" . join(',',@_) .')') if ($@);
- $top->apply_command_line;
+ my $name = $0;
+ $name = 'ptk' if ($name eq '-e'); 
+ $name    =~ s#^.*/##; 
+ $ENV{'DISPLAY'} = ':0' unless (exists $ENV{'DISPLAY'});
+ my $top = eval { bless CreateMainWindow("\l$name", "\u$name", @_), $package };
+ croak($@ . "$package" ."::new(" . join(',',@_) .")") if ($@);
  $top->InitBindings;
- $top->SetBindtags;
  $top->InitObject(\%args);
  eval { $top->configure(%args) };
  croak "$@" if ($@);
- if (($top->positionfrom||'') ne 'user' and ($top->sizefrom||'') ne 'user') {
-     my $geometry = $top->optionGet(qw(geometry Geometry));
-     if ($geometry) {
-	 $top->geometry($geometry);
-     }
- }
- $Windows{$top} = $top;
+ $top->SetBindtags;
+ push(@Windows,$top);
  return $top;
-}
-
-sub _Destroyed
-{
- my $top = shift;
- $top->SUPER::_Destroyed;
- delete $Windows{$top};
 }
 
 sub InitBindings
 {
  my $mw = shift;
- $mw->bind('all','<Tab>','focusNext');
- # <<LeftTab>> is named <<PrevWindow>> in Tcl/Tk
- $mw->eventAdd(qw[<<LeftTab>> <Shift-Tab>]);
- # This is needed for XFree86 systems
- catch { $mw->eventAdd(qw[<<LeftTab>> <ISO_Left_Tab>]) };
- # This seems to be correct on *some* HP systems.
- catch { $mw->eventAdd(qw[<<LeftTab>> <hpBackTab>]) };
- $mw->bind('all','<<LeftTab>>','focusPrev');
- if ($mw->windowingsystem eq 'x11')
-  {
-   $mw->eventAdd(qw[<<Cut>> <Control-Key-x> <Lock-Control-Key-X> <Key-F20> <Meta-Key-w>]);
-   $mw->eventAdd(qw[<<Copy>> <Control-Key-c> <Lock-Control-Key-C> <Key-F16> <Control-Key-w>]);
-   $mw->eventAdd(qw[<<Paste>> <Control-Key-v> <Lock-Control-Key-V> <Key-F18> <Control-Key-y>]);
-   $mw->eventAdd(qw[<<PasteSelection>> <ButtonRelease-2>]);
-   $mw->eventAdd(qw[<<Undo>> <Control-Key-z> <Key-Undo> <Key-F14>
-                    <Control-Key-underscore>]);
-   $mw->eventAdd(qw[<<Redo>> <Control-Key-y> <Shift-Key-Undo> <Key-F12> <Shift-Key-F14>]);
-  }
- elsif ($mw->windowingsystem eq 'win32')
-  {
-   $mw->eventAdd(qw[<<Cut>> <Control-Key-x> <Shift-Key-Delete>]);
-   $mw->eventAdd(qw[<<Copy>> <Control-Key-c> <Control-Key-Insert>]);
-   $mw->eventAdd(qw[<<Paste>> <Control-Key-v> <Shift-Key-Insert>]);
-   $mw->eventAdd(qw[<<Undo>> <Control-Key-z>]);
-   $mw->eventAdd(qw[<<Redo>> <Control-Key-y>]);
-  }
- elsif ($mw->windowingsystem eq 'aqua')
-  {
-   $mw->eventAdd(qw[<<Cut>> <Command-Key-x> <Key-F2>]);
-   $mw->eventAdd(qw[<<Copy>> <Command-Key-c> <Key-F3>]);
-   $mw->eventAdd(qw[<<Paste>> <Command-Key-v> <Key-F4>]);
-   $mw->eventAdd(qw[<<PasteSelection>> <ButtonRelease-2>]);
-   $mw->eventAdd(qw[<<Clear>> <Clear>]);
-   $mw->eventAdd(qw[<<Undo>> <Command-Key-z>]);
-   $mw->eventAdd(qw[<<Redo>> <Command-Key-y>]);
-  }
- elsif ($mw->windowingsystem eq 'classic')
-  {
-   $mw->eventAdd(qw[<<Cut>> <Control-Key-x> <Key-F2>]);
-   $mw->eventAdd(qw[<<Copy>> <Control-Key-c> <Key-F3>]);
-   $mw->eventAdd(qw[<<Paste>> <Control-Key-v> <Key-F4>]);
-   $mw->eventAdd(qw[<<PasteSelection>> <ButtonRelease-2>]);
-   $mw->eventAdd(qw[<<Clear>> <Clear>]);
-   $mw->eventAdd(qw[<<Undo>> <Control-Key-z> <Key-F1>]);
-   $mw->eventAdd(qw[<<Redo>> <Control-Key-Z>]);
-  }
-
- # FIXME - Should these move to Menubutton ?
- my $c = ($Tk::platform eq 'unix') ? 'all' : 'Tk::Menubutton';
- $mw->bind($c,'<Alt-KeyPress>',['TraverseToMenu',Tk::Ev('K')]);
- $mw->bind($c,'<F10>','FirstMenu');
+ $mw->bind('all',"<Tab>","focusNext");
+ $mw->bind('all',"<Shift-Tab>","focusPrev");
+                                    
+ $mw->bind('all',"<Alt-KeyPress>",['TraverseToMenu',Tk::Ev(A)]);
+ $mw->bind('all',"<F10>",'FirstMenu');
 }
+
 
 sub Existing
 {
- my @Windows;
- foreach my $name (keys %Windows)
-  {
-   my $obj = $Windows{$name};
-   if (Tk::Exists($obj))
-    {
-     push(@Windows,$obj);
-    }
-   else
-    {
-     delete $Windows{$name};
-    }
-  }
- return @Windows;
+ grep( Tk::Exists($_), @Windows);  
 }
+
 
 END
 {
- if (Tk::IsParentProcess())
+ if ($pid == $$)
   {
-   foreach my $top (values %Windows)
+   my $top;
+   while ($top = pop(@Windows))
     {
      if ($top->IsWidget)
       {
@@ -161,50 +60,97 @@ END
        # this can occur if non-callback perl code did a 'die'.
        # It will also handle some cases of non-Tk 'exit' being called
        # Destroy this mainwindow and hence is descendants ...
-       $top->destroy;
+       $top->destroy; 
       }
     }
   }
 }
 
-sub CmdLine { return shift->command }
-
-sub WMSaveYourself
-{
- my $mw  = shift;
- my @args = @{$mw->command};
-# warn 'preWMSaveYourself:'.join(' ',@args)."\n";
- @args = ($0) unless (@args);
- my $i = 1;
- while ($i < @args)
-  {
-   if ($args[$i] eq '-iconic')
-    {
-     splice(@args,$i,1);
-    }
-   elsif ($args[$i] =~ /^-(geometry|iconposition)$/)
-    {
-     splice(@args,$i,2);
-    }
-  }
-
- my @ip = $mw->wm('iconposition');
-# print 'ip ',join(',',@ip),"\n";
- my $icon = $mw->iconwindow;
- if (defined($icon))
-  {
-   @ip = $icon->geometry =~ /\d+x\d+([+-]\d+)([+-]\d+)/;
-  }
- splice(@args,1,0,'-iconposition' => join(',',@ip)) if (@ip == 2);
-
- splice(@args,1,0,'-iconic') if ($mw->state() eq 'iconic');
-
- splice(@args,1,0,'-geometry' => $mw->geometry);
-# warn 'postWMSaveYourself:'.join(' ',@args)."\n";
- $mw->command([@args]);
-}
-
 1;
 
 __END__
+
+sub CmdLine
+{
+ my $top = shift;
+ my $state = $top->state;
+
+ *opt_fg = \$opt_foreground; 
+ *opt_bg = \$opt_background; 
+ *opt_fn = \$opt_font; 
+ *opt_motif = \$Tk::strictMotif;
+
+ my $result = GetOptions('iconposition=s',
+                         'geometry=s',
+                         'title=s',
+                         'fg=s','foreground=s',
+                         'bg=s','background=s',
+                         'fn=s','font=s',
+                         'iconic!','motif!');
+
+ $top->title($opt_title) if (defined $opt_title);
+ my (@colours) = ();
+ push(@colours,foreground => $opt_foreground)if (defined $opt_foreground);
+ $opt_background = '#d9d9d9' if (@colours && !defined($opt_background));
+ push(@colours,background => $opt_background)if (defined $opt_background);
+ $top->setPalette(@colours) if (@colours);
+
+ $top->optionAdd('*font' => $opt_font)  if (defined $opt_font);
+
+ if (defined $opt_iconposition)
+  {
+   my $icon = $top->iconwindow;
+   my ($x,$y) = split(',',$opt_iconposition); 
+   $top->iconposition($x,$y);
+  }
+
+ if (defined $opt_geometry)
+  {
+   $top->geometry($opt_geometry);
+   $top->positionfrom('user');
+   $top->sizefrom('user'); 
+  }
+
+ $top->protocol(WM_SAVE_YOURSELF => ['SaveYourself',$top]);
+ $top->command([$0,@ARGV]);
+ if (defined $opt_iconic && $opt_iconic)
+  {
+   $top->iconify unless ($state eq 'iconic');
+  }
+ else
+  {
+   $top->deiconify unless ($state eq 'normal');
+  }
+ return $top;
+}
+
+sub SaveYourself
+{
+ my $top  = shift;
+ my $icon = $top->iconwindow;
+ my @args = @{$top->command};
+ @args = ($0) unless (@args);
+ my @iconpos;
+ if (defined($icon))
+  {
+   my $geom = $icon->geometry;
+   @iconpos = $geom =~ /\d+x\d+([+-]\d+)([+-]\d+)/;
+  }
+ else
+  {
+   @iconpos = $top->iconposition;
+  }
+
+ push(@args,'-iconposition' => "$iconpos[0],$iconpos[1]") if (@iconpos == 2);
+
+ if ($top->state() eq 'iconic')
+  {
+   @args = grep(!/^-(no)?iconic/,@args);
+   push(@args,'-iconic');
+  }
+
+ push(@args,'-geometry' => $top->geometry);
+ $top->command([@args]);
+}
+
 

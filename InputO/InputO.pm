@@ -1,19 +1,19 @@
-package Tk::InputO;
+package Tk::InputO; 
+require Tk;
+require DynaLoader;
 
-use vars qw($VERSION);
-$VERSION = '4.004'; # $Id: //depot/Tkutf8/InputO/InputO.pm#4 $
+@ISA = qw(DynaLoader Tk::Widget);
 
-use Tk qw($XS_VERSION);
+Tk::Widget->Construct('InputO');
 
-use base  qw(Tk::Widget);
-
-Construct Tk::Widget 'InputO';
-
-bootstrap Tk::InputO;
+bootstrap Tk::InputO $Tk::VERSION; 
 
 sub Tk_cmd { \&Tk::inputo }
 
-#Tk::Methods qw(add ...);
+#EnterMethods Tk::InputO __FILE__,qw(add addchild anchor column
+#                                   delete dragsite dropsite entrycget
+#                                   entryconfigure geometryinfo hide item info
+#                                   nearest see selection show xview yview);
 
 1;
 

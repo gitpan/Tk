@@ -1,29 +1,4 @@
-# Copyright (c) 1995-2003 Nick Ing-Simmons. All rights reserved.
-# This program is free software; you can redistribute it and/or
-# modify it under the same terms as Perl itself.
-package Tk::Clipboard;
-use strict;
-
-use vars qw($VERSION);
-$VERSION = '4.009'; # sprintf '4.%03d', q$Revision: #8 $ =~ /\D(\d+)\s*$/;
-
-use AutoLoader qw(AUTOLOAD);
-use Tk qw(catch);
-
-sub clipEvents
-{
- return qw[Copy Cut Paste];
-}
-
-sub ClassInit
-{
- my ($class,$mw) = @_;
- foreach my $op ($class->clipEvents)
-  {
-   $mw->Tk::bind($class,"<<$op>>","clipboard$op");
-  }
- return $class;
-}
+package Tk::Widget;
 
 sub clipboardSet
 {
@@ -35,88 +10,66 @@ sub clipboardSet
 sub clipboardCopy
 {
  my $w = shift;
- my $val = $w->getSelected;
- if (defined $val)
+ if ($w->IS($w->SelectionOwner))
   {
-   $w->clipboardSet('--',$val);
+   $w->clipboardSet($w->SelectionGet);
   }
- return $val;
 }
 
 sub clipboardCut
 {
  my $w = shift;
- my $val = $w->clipboardCopy;
- if (defined $val)
+ if ($w->IS($w->SelectionOwner))
   {
+   $w->clipboardSet($w->SelectionGet);
    $w->deleteSelected;
   }
- return $val;
 }
 
 sub clipboardGet
 {
  my $w = shift;
- $w->SelectionGet('-selection','CLIPBOARD',@_);
+ $w->SelectionGet("-selection","CLIPBOARD",@_);
 }
 
 sub clipboardPaste
 {
  my $w = shift;
- local $@;
- catch
-  {
-## Different from Tcl/Tk version:
-#    if ($w->windowingsystem eq 'x11')
-#     {
-#      catch
-#       {
-#        $w->deleteSelected;
-#       };
-#     }
-   $w->insert("insert", $w->clipboardGet);
-   $w->SeeInsert if $w->can('SeeInsert');
-  };
+ local ($@);
+ eval {$w->insert("insert",$w->clipboardGet)};
+ $w->BackTrace($@) if ($@);
 }
 
-sub clipboardOperations
+# clipboardKeysyms --
+# This procedure is invoked to identify the keys that correspond to
+# the "copy", "cut", and "paste" functions for the clipboard.
+#
+# Arguments:
+# copy - Name of the key (keysym name plus modifiers, if any,
+# such as "Meta-y") used for the copy operation.
+# cut - Name of the key used for the cut operation.
+# paste - Name of the key used for the paste operation.
+
+
+sub clipboardKeysyms
 {
- my @class = ();
+ my $class = shift;
  my $mw    = shift;
- if (ref $mw)
+ if (@_)
   {
-   $mw = $mw->DelegateFor('bind');
+   my $copy  = shift;
+   $mw->Tk::bind($class,"<$copy>",'clipboardCopy')   if (defined $copy);
   }
- else
+ if (@_)
   {
-   push(@class,$mw);
-   $mw = shift;
+   my $cut   = shift;
+   $mw->Tk::bind($class,"<$cut>",'clipboardCut')     if (defined $cut);
   }
- while (@_)
+ if (@_)
   {
-   my $op = shift;
-   $mw->Tk::bind(@class,"<<$op>>","clipboard$op");
+   my $paste = shift;                                                
+   $mw->Tk::bind($class,"<$paste>",'clipboardPaste') if (defined $paste);
   }
 }
-
-# These methods work for Entry and Text
-# and can be overridden where they don't work
-
-sub deleteSelected
-{
- my $w = shift;
- catch { $w->delete('sel.first','sel.last') };
-}
-
 
 1;
-__END__
-
-sub getSelected
-{
- my $w   = shift;
- my $val = Tk::catch { $w->get('sel.first','sel.last') };
- return $val;
-}
-
-

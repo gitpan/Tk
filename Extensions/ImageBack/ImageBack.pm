@@ -1,12 +1,8 @@
-package # hide from CPAN indexer
-    Tk::ImageBack;
+package Tk::ImageBack;
 require DynaLoader;
+require Tk;
 
-use vars qw($VERSION);
-$VERSION = '4.005'; # $Id: //depot/Tkutf8/Extensions/ImageBack/ImageBack.pm#4 $
-
-use Tk qw($XS_VERSION);
-use base  qw(DynaLoader);
+@ISA = qw(DynaLoader);
 
 bootstrap Tk::ImageBack;
 

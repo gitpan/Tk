@@ -1,77 +1,73 @@
 # radio.pl
 
-use Tk::widgets qw/LabFrame/;
-use vars qw/$TOP/;
-
 sub radio {
 
     # Create a top-level window that displays a bunch of radio buttons.
 
-    my($demo) = @_;
-    $TOP = $MW->WidgetDemo(
-        -name     => $demo,
-        -text     => ['Two groups of radiobuttons are displayed below.  If you click on a button then the button will become selected exclusively among all the buttons in its group.  A Perl variable is associated with each group to indicate which of the group\'s buttons is selected.  Click the "See Variables" button to see the current values of the variables.', qw/-wraplength 5i/],
-        -title    => 'Radiobutton Demonstration',
-        -iconname => 'radio',
-    );
+    my($demo) = @ARG;
 
-    my $var = $TOP->Button(
+    $RADIO->destroy if Exists($RADIO);
+    $RADIO = $MW->Toplevel;
+    my $w = $RADIO;
+    dpos $w;
+    $w->title('Radiobutton Demonstration');
+    $w->iconname('radio');
+    my $w_msg = $w->Label(
+        -font       => $FONT,
+        -wraplength => '5i',
+        -justify    => 'left',
+        -text       => 'Two groups of radiobuttons are displayed below.  If you click on a button then the button will become selected exclusively among all the buttons in its group.  A Perl variable is associated with each group to indicate which of the group\'s buttons is selected.  Click the "See Variables" button to see the current values of the variables.',
+    );
+    $w_msg->pack;
+
+    my $w_buttons = $w->Frame;
+    $w_buttons->pack(qw(-side bottom -fill x -pady 2m));
+    my $w_dismiss = $w_buttons->Button(
+        -text    => 'Dismiss',
+        -command => [$w => 'destroy'],
+    );
+    $w_dismiss->pack(qw(-side left -expand 1));
+    my $w_see = $w_buttons->Button(
+        -text    => 'See Code',
+        -command => [\&see_code, $demo],
+    );
+    $w_see->pack(qw(-side left -expand 1));
+    my $w_var = $w_buttons->Button(
         -text    => 'See Variables',
-        -command => [\&see_vars, $TOP, [
+        -command => [\&see_vars, $w, [
                                       ['point size', \$POINT_SIZE],
                                       ['color',      \$COLOR],
-                                      ['alignment',  \$ALIGN],
-				      ]
-		     ],
+                                     ]
+                    ],
     );
-    $var->pack(qw/-side bottom -expand 1/);
+    $w_var->pack(qw(-side left -expand 1));
 
-    my @pl = qw/-side left -expand 1 -padx .5c -pady .5c/;
-    my $left  = $TOP->LabFrame(-label => 'Point Size')->pack(@pl);
-    my $mid   = $TOP->LabFrame(-label => 'Color')->pack(@pl);
-    my $right = $TOP->LabFrame(-label => 'Alignment')->pack(@pl);
+    my $w_left = $w->Frame;
+    my $w_right = $w->Frame;
+    my @pl = (-side => 'left', -expand => 1, -padx => '.5c', -pady => '.5c');
+    $w_left->pack(@pl);
+    $w_right->pack(@pl);
 
-    @pl = qw/-side top -pady 2 -anchor w/;
-    foreach my $p (10, 12, 18, 24) {
-	$left->Radiobutton(
+    my($r, $p, $c);
+    foreach $p (10, 12, 18, 24) {
+	$r = $w_left->Radiobutton(
             -text     => "Point Size $p",
             -variable => \$POINT_SIZE,
             -relief   => 'flat',
             -value    => $p,
-        )->pack(@pl);
+        );
+	$r->pack(-side => 'top', -pady => '2', -anchor => 'w');
     }
 
-    foreach my $c (qw/Red Green Blue Yellow Orange Purple/) {
-	$mid->Radiobutton(
+    foreach $c (qw(Red Green Blue Yellow Orange Purple)) {
+	$r = $w_right->Radiobutton(
             -text     => $c,
             -variable => \$COLOR,
             -relief   => 'flat',
             -value    => lc($c),
-            -command  => sub {$mid->configure(-foreground => $c)},
-        )->pack(@pl);
-    }
-
-    my $l = $right->Label(qw/-text Label -bitmap questhead -compound left/);
-    $l->configure(-width  => $l->reqwidth, -compound => 'top');
-    $l->configure(-height => $l->reqheight);
-    my %w;
-    foreach my $a (qw/Top Left Right Bottom/) {
-	my $lower = lc $a;
-	$w{$lower} = $right->Radiobutton(
-            -text        => $a,
-            -variable    => \$ALIGN,
-	    -relief      => 'flat',
-            -value       => $lower,
-            -indicatoron => 0,
-            -width       => 7,
-	    -command     => sub {
-		$l->configure(-compound => $ALIGN);
-	    },
         );
+	$r->pack(-side => 'top', -pady => '2', -anchor => 'w');
     }
-    Tk::grid('x', $w{'top'});
-    $w{'left'}->grid($l, $w{'right'});
-    Tk::grid('x', $w{'bottom'});
 
 } # end radio
 

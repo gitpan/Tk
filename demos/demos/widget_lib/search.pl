@@ -1,83 +1,92 @@
 # search.pl
 
-use Tk::LabEntry;
-use subs qw/search_flash_matches search_load_file search_text/;
-use vars qw/$TOP/;
+use subs qw(search_flash_matches search_load_file search_text);
 
 sub search {
 
     # Create a top-level window with a text widget that allows you to load a
-    # file and highlight all instances of a given string.  A LabEntry widget
-    # is used to collect the file name and search string.
+    # file and highlight all instances of a given string.
 
-    my($demo) = @_;
-    $TOP = $MW->WidgetDemo(
-        -name     => $demo,
-        -text     =>'',
-        -title    => 'Text Demonstration - Search and Highlight',
-        -iconname => 'search',
+    my($demo) = @ARG;
+
+    $SEARCH->destroy if Exists($SEARCH);
+    $SEARCH = $MW->Toplevel;
+    my $w = $SEARCH;
+    dpos $w;
+    $w->title('Text Demonstration - Search and Highlight');
+    $w->iconname('search');
+
+    my $w_buttons = $w->Frame;
+    $w_buttons->pack(qw(-side bottom -fill x -pady 2m));
+    my $w_dismiss = $w_buttons->Button(
+        -text    => 'Dismiss',
+        -command => [$w => 'destroy'],
     );
+    $w_dismiss->pack(qw(-side left -expand 1));
+    my $w_see = $w_buttons->Button(
+        -text    => 'See Code',
+        -command => [\&see_code, $demo],
+    );
+    $w_see->pack(qw(-side left -expand 1));
 
     my $file_name = '';
-    my $file = $TOP->Frame;
-    my $fn = $file->LabEntry(-label => 'File Name:      ', -width => 40,
-        -labelPack => [qw/-side left -anchor w/],
-        -textvariable => \$file_name)->pack(qw/-side left/);
-    $fn->Subwidget('entry')->focus;
-    my $fn_button = $file->Button(-text => 'Load File');
-    $fn_button->pack(qw/-side left -pady 5 -padx 10/);
+    my $w_file = $w->Frame;
+    my $w_file_label = $w_file->Label(-text => 'File name:', -width => 13,
+				      -anchor => 'w');
+    my $w_file_entry = $w_file->Entry(-width => 40,
+				      -textvariable => \$file_name);
+    my $w_file_button = $w_file->Button(-text => 'Load File');
+    $w_file_label->pack(-side => 'left');
+    $w_file_entry->pack(-side => 'left');
+    $w_file_button->pack(-side => 'left', -pady => 5, -padx => 10);
+    $w_file_entry->focus;
 
     my $search_string = '';
-    my $kind = 'exact';
-    my $string = $TOP->Frame;
-    my $ss = $string->LabEntry(-label => 'Search string:', -width => 40,
-        -labelPack => [qw/-side left -anchor w/],
-        -textvariable => \$search_string)->pack(qw/-side left/);
-    my $ss_button = $string->Button(-text => 'Highlight');
-    $ss_button->pack(qw/-side left -pady 5 -padx 10/);
+    my $w_string = $w->Frame;
+    my $w_string_label = $w_string->Label(-text => 'Search string:',
+					  -width => 13, -anchor => 'w');
+    my $w_string_entry = $w_string->Entry(-width => 40, 
+					  -textvariable => \$search_string);
+    my $w_string_button = $w_string->Button(-text => 'Highlight');
+    $w_string_label->pack(-side => 'left');
+    $w_string_entry->pack(-side => 'left');
+    $w_string_button->pack(-side => 'left', -pady => 5, -padx => 10);
 
-    my $text = $TOP->Scrolled(qw/Text -setgrid true -scrollbars e/);
+    my $w_t = $w->Text(-setgrid => 'true');
+    my $w_s = $w->Scrollbar(-command => [$w_t, 'yview']);
+    $w_t->configure(-yscrollcommand => [$w_s => 'set']);
+    $w_file->pack(-side => 'top', -fill => 'x');
+    $w_string->pack(-side => 'top', -fill => 'x');
+    $w_s->pack(-side => 'right', -fill => 'y');
+    $w_t->pack(-expand => 'yes', -fill => 'both');
 
-    my $subframe = $TOP->Frame;
-    my $exact  = $subframe->Radiobutton(-text => 'Exact match',
-                                        -variable => \$kind,
-                                        -value => 'exact');
-    my $regexp = $subframe->Radiobutton(-text => 'Regular expression',
-                                        -variable => \$kind,
-                                        -value => 'regexp');
-    $exact->pack(qw/-side left/, -fill => 'x');
-    $regexp->pack(qw/-side right/, -fill => 'x');
+    my $command =  sub {search_load_file($w_t, \$file_name, $w_string_entry)};
+    $w_file_button->configure(-command => $command);
+    $w_file_entry->bind('<Return>' => $command);
 
-    $file->pack(qw/-side top -fill x/);
-    $string->pack(qw/-side top -fill x/);
-    $subframe->pack(qw/-side top -fill x/);
-    $text->pack(qw/-expand yes -fill both/);
-
-    my $command =  sub {search_load_file $text, \$file_name, $ss};
-    $fn_button->configure(-command => $command);
-    $fn->bind('<Return>' => $command);
-
-    $command = sub {search_text $text, \$search_string, 'search', $kind};
-    $ss_button->configure(-command => $command);
-    $ss->bind('<Return>' => $command);
+    $command = sub {search_text($w_t, \$search_string, 'search')};
+    $w_string_button->configure(-command => $command);
+    $w_string_entry->bind('<Return>' => $command);
 
     # Set up display styles for text highlighting.
 
-    if ($TOP->depth > 1) {
-	search_flash_matches $text,
-            ['configure', 'search',
-                -background => '#ce5555', -foreground => 'white'], 800,
-            ['configure', 'search',
-                -background => undef,     -foreground => undef],   200;
+    if ($w->depth > 1) {
+	search_flash_matches($w_t, ['configure', 'search',
+                           -background => '#ce5555',
+                           -foreground => 'white'], 800,
+		          ['configure', 'search', 
+                           -background => undef,  
+                           -foreground => undef],   200);
       } else {
-	search_flash_matches $text,
-            ['configure', 'search',
-                -background => 'black',   -foreground => 'white'], 800,
-            ['configure', 'search',
-               -background => undef,      -foreground => undef],   200;
+	search_flash_matches($w_t, ['configure', 'search', 
+                           -background => 'black',
+                           -foreground => 'white'], 800,
+		          ['configure', 'search', 
+                           -background => undef,
+                           -foreground => undef],   200);
       }
 
-    $text->insert('0.0', 'This window demonstrates how to use the tagging facilities in text
+    $w_t->insert('0.0', 'This window demonstrates how to use the tagging facilities in text
 widgets to implement a searching mechanism.  First, type a file name
 in the top entry, then type <Return> or click on "Load File".  Then
 type a string in the lower entry and type <Return> or click on
@@ -85,7 +94,7 @@ type a string in the lower entry and type <Return> or click on
 be tagged with the tag "search", and it will arrange for the tag\'s
 display attributes to change to make all of the strings blink.');
 
-    $text->mark(qw/set insert 0.0/);
+    $w_t->mark('set', 'insert', '0.0');
 
 } # end search
 
@@ -103,10 +112,10 @@ sub search_flash_matches {
     # cmd2 -	Reference to a list of tag options.
     # sleep2 -	Ms to sleep after executing cmd2 before executing cmd1 again.
 
-    my($w, $cmd1, $sleep1, $cmd2, $sleep2) = @_;
+    my($w, $cmd1, $sleep1, $cmd2, $sleep2) = @ARG;
 
     $w->tag(@{$cmd1});
-    $w->after($sleep1,
+    $w->after($sleep1, 
 	      [\&search_flash_matches, $w, $cmd2, $sleep2, $cmd1, $sleep1]);
 
 } # end search_flash_matches
@@ -122,27 +131,27 @@ sub search_load_file {
     # file -	Reference to the name of the file to load.  Must be readable.
     # e -       Entry widget to get next focus.
 
-    my ($w, $file, $e) = @_;
+    my ($w, $file, $e) = @ARG;
 
     my ($buf, $bytes) = ('', 0);
 
     if (not open(F, "<$$file")) {
 	$MW->Dialog(
             -title  => 'File Not Found',
-            -text   => "$!: '$$file'",
+            -text   => $OS_ERROR,
             -bitmap => 'error',
         )->Show;
 	return;
     }
-    $w->delete(qw/1.0 end/);
-    $bytes = read F, $buf, 10_000;	# after all, it IS just an example
+    $w->delete('1.0', 'end');
+    $bytes = read F, $buf, 10000;	# after all, it IS just an example
     $w->insert('end', $buf);
     if ($bytes == 10000) {
 	$w->insert('end', "\n\n**************** File truncated at 10,000 bytes! ****************\n");
     }
     close F;
 
-    $e->Subwidget('entry')->focus;
+    $e->focus;
 
 } # end search_load_file
 
@@ -153,22 +162,19 @@ sub search_text {
     # Arguments:
     #
     # w -	The window in which to search.  Must be a text widget.
-    # string -	Reference to the string to search for.  The search is done
+    # string -	Reference to the string to search for.  The search is done 
     #           using exact matching only;  no special characters.
     # tag -	Tag to apply to each instance of a matching string.
 
-    my($w, $string, $tag, $kind) = @_;
+    my($w, $string, $tag) = @ARG;
 
-    return unless ref($string) && length($$string);
-
-    $w->tagRemove($tag, qw/0.0 end/);
+    $w->tag('remove',  $tag, '0.0', 'end');
     my($current, $length) = ('1.0', 0);
-
+    
     while (1) {
-	$current = $w->search(-count => \$length, "-$kind", $$string, $current, 'end');
+	$current = $w->search(-count => \$length, $$string, $current, 'end');
 	last if not $current;
-	warn "Posn=$current count=$length\n",
-	$w->tagAdd($tag, $current, "$current + $length char");
+	$w->tag('add', $tag, $current, "$current + $length char");
 	$current = $w->index("$current + $length char");
     }
 

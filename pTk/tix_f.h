@@ -2,7 +2,6 @@
 #define TIX_VT
 typedef struct TixVtab
 {
- unsigned (*tabSize)(void);
 #define VFUNC(type,name,mem,args) type (*mem) args;
 #define VVAR(type,name,mem)       type (*mem);
 #include "tix.t"
@@ -10,5 +9,5 @@ typedef struct TixVtab
 #undef VVAR
 } TixVtab;
 extern TixVtab *TixVptr;
-extern TixVtab *TixVGet(void);
+extern TixVtab *TixVGet _ANSI_ARGS_((void));
 #endif /* TIX_VT */

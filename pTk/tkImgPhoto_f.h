@@ -2,7 +2,6 @@
 #define TKIMGPHOTO_VT
 typedef struct TkimgphotoVtab
 {
- unsigned (*tabSize)(void);
 #define VFUNC(type,name,mem,args) type (*mem) args;
 #define VVAR(type,name,mem)       type (*mem);
 #include "tkImgPhoto.t"
@@ -10,5 +9,5 @@ typedef struct TkimgphotoVtab
 #undef VVAR
 } TkimgphotoVtab;
 extern TkimgphotoVtab *TkimgphotoVptr;
-extern TkimgphotoVtab *TkimgphotoVGet(void);
+extern TkimgphotoVtab *TkimgphotoVGet _ANSI_ARGS_((void));
 #endif /* TKIMGPHOTO_VT */

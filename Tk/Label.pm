@@ -1,17 +1,10 @@
-# Copyright (c) 1995-2003 Nick Ing-Simmons. All rights reserved.
-# This program is free software; you can redistribute it and/or
-# modify it under the same terms as Perl itself.
-
-package Tk::Label;
+# simply split out of Tk-a5's Tk.pm
+package Tk::Label; 
 require Tk;
 
+@ISA = qw(Tk::Widget); 
 
-use vars qw($VERSION);
-$VERSION = '4.006'; # $Id: //depot/Tkutf8/Tk/Label.pm#6 $
-
-use base  qw(Tk::Widget);
-
-Construct Tk::Widget 'Label';
+Tk::Widget->Construct('Label');
 
 sub Tk_cmd { \&Tk::label }
 
