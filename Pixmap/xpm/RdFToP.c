@@ -32,7 +32,7 @@
 *  Developed by Arnaud Le Hors                                                *
 \*****************************************************************************/
 
-#include "xpmP.h"
+#include "XpmI.h"
 
 int
 XpmReadFileToPixmap(display, d, filename, pixmap_return,
@@ -65,10 +65,12 @@ XpmReadFileToPixmap(display, d, filename, pixmap_return,
     /* create the pixmaps and destroy images */
     if (pixmap_return && ximage) {
 	xpmCreatePixmapFromImage(display, d, ximage, pixmap_return);
+	xpmFreeImageData(ximage);
 	XDestroyImage(ximage);
     }
     if (shapemask_return && shapeimage) {
 	xpmCreatePixmapFromImage(display, d, shapeimage, shapemask_return);
+	xpmFreeImageData(shapeimage);
 	XDestroyImage(shapeimage);
     }
     return (ErrorStatus);

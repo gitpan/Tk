@@ -1,11 +1,15 @@
+# Copyright (c) 1995-1997 Nick Ing-Simmons. All rights reserved.
+# This program is free software; you can redistribute it and/or
+# modify it under the same terms as Perl itself.
 package Tk::Widget;
 require Tk;
 use AutoLoader;
-use strict qw(vars);
+require DynaLoader;
+use strict;
 
 use Carp;
 
-@Tk::Widget::ISA = qw(Tk);
+@Tk::Widget::ISA = qw(DynaLoader Tk);
 
 # stubs for 'autoloaded' widget classes
 sub Button;
@@ -28,13 +32,13 @@ sub Pixmap;
 sub Bitmap;
 sub Photo;
 
-sub Menubar;
 sub ScrlListbox;
 sub Optionmenu; 
 
 sub import
 {
  my $package = shift;
+ carp "use Tk::Widget () to pre-load widgets is deprecated" if (@_ && $^W);
  my $need;
  foreach $need (@_)
   {
@@ -48,30 +52,28 @@ sub import
 
 # Some tidy-ness functions for winfo stuff
 
+sub True  { 1 }
+sub False { 0 }
 
-BEGIN 
- {
-  Tk::SubMethods( 'grab' =>  [qw(current status release -global)],
-                  'focus' => [qw(-force -lastfor)],
-                  'pack'  => [qw(configure forget info propagate slaves)],
-                  'after' => [qw(cancel idle)],
-                  'place' => [qw(configure forget info slaves)],
-                  'wm'    => [qw(capture release)]
-                );
+use Tk::Submethods( 'grab' =>  [qw(current status release -global)],
+                    'focus' => [qw(-force -lastfor)],
+                    'pack'  => [qw(configure forget info propagate slaves)],
+                    'grid'  => [qw(bbox columnconfigure configure forget info location propagate rowconfigure size slaves)],
+                    'after' => [qw(cancel idle)],
+                    'place' => [qw(configure forget info slaves)],
+                    'wm'    => [qw(capture release)]
+                  );
 
-  my $fn;
-  foreach $fn (qw(cells class colormapfull depth exists geometry height id 
-               ismapped manager name parent reqheight reqwidth rootx rooty
-               screen screencells screendepth screenheight screenmmheight
-               screenmmwidth  screenvisual screenwidth visual visualsavailable 
-               vrootheight viewable vrootwidth vrootx vrooty width x y toplevel children
-               pixels pointerx pointery pointerxy server fpixels rgb
-              ))
-   {
-    *{"$fn"} = sub { shift->winfo($fn, @_) };
-   }
+*IsMenu       = \&False;
+*IsMenubutton = \&False;
 
- }
+Direct Tk::Submethods ( 'winfo' => [qw(cells class colormapfull depth exists
+               geometry height id ismapped manager name parent reqheight
+               reqwidth rootx rooty screen screencells screendepth screenheight
+               screenmmheight screenmmwidth  screenvisual screenwidth visual
+               visualsavailable  vrootheight viewable vrootwidth vrootx vrooty
+               width x y toplevel children pixels pointerx pointery pointerxy
+               server fpixels rgb )]);
 
 sub DESTROY
 {
@@ -97,6 +99,7 @@ sub InitClass
 {
  my ($package,$parent) = @_;
  croak "Unexpected type of parent $parent" unless(ref $parent);
+ croak "$parent is not a widget" unless($parent->IsWidget);
  my $mw = $parent->MainWindow;
  unless (exists $mw->{'_ClassInit_'}{$package})
   {
@@ -109,11 +112,18 @@ sub CreateArgs
 {
  my ($package,$parent,$args) = @_;
  # Remove from hash %$args any configure-like
- # options which only apply at create time (e.g. -class for Frame)
+ # options which only apply at create time (e.g. -colormap for Frame)
  # return these as a list of -key => value pairs
  # Augment same hash with default values for missing mandatory options,
  # allthough this can be done later in InitObject.
- return ();
+
+ # Honour -class => if present, we have hacked Tk_ConfigureWidget to 
+ # allow -class to be passed to any widget.                         
+ my @result = ();
+ my $class = delete $args->{'-class'};                     
+ ($class) = $package =~ /([A-Za-z]+)$/ unless (defined $class);
+ push(@result, '-class' => "\u$class") if (defined $class);
+ return @result;
 }
 
 sub InitObject
@@ -133,8 +143,12 @@ sub SetBindtags
 
 sub new
 {
- my ($package,$parent,%args) = @_;
+ local $SIG{'__DIE__'} = \&Carp::croak;
+ my $package = shift;
+ my $parent  = shift;
  $package->InitClass($parent);
+ $parent->BackTrace("Odd number of args to $package->new(...)") unless ((@_ % 2) == 0);
+ my %args  = @_;
  my @args  = $package->CreateArgs($parent,\%args);
  my $cmd   = $package->Tk_cmd;
  my $pname = $parent->PathName;
@@ -160,52 +174,46 @@ sub new
      $lname = $pname . "." . $leaf . ++$parent->{$key};
     }
   }
- my $obj = eval { &$cmd($parent, $lname, @args) };
- croak "$@" if ($@);
+ my $obj = &$cmd($parent, $lname, @args);
  bless $obj,$package;
  $obj->InitObject(\%args);
- if (%args)
-  {
-   eval { $obj->configure(%args) };
-   croak "$@" if ($@);
-  }
+ $obj->configure(%args) if (%args);
  $obj->SetBindtags;
  return $obj;
 }
 
-sub True  { 1 }
-sub False { 0 }
-
 sub DelegateFor
 {
  my ($w,$method) = @_;
- return $w unless (exists $w->{Delegates});
- my $delegate = $w->{Delegates};
- my $widget = $delegate->{$method};
- $widget = $delegate->{DEFAULT} unless (defined $widget);
- $widget = $w->Subwidget($widget) if (defined $widget && !ref $widget);
- $widget = $w unless (defined $widget);
- return $widget;
+ while(exists $w->{Delegates})
+  {
+   my $delegate = $w->{Delegates};
+   my $widget = $delegate->{$method};
+   $widget = $delegate->{DEFAULT} unless (defined $widget);
+   $widget = $w->Subwidget($widget) if (defined $widget && !ref $widget);
+   last unless (defined $widget);
+   last if $widget == $w;
+   $w = $widget;
+  }
+ return $w;
 }
 
 sub Delegates
 {
- my ($cw,%args) = @_;
+ my $cw = shift;
  if (exists $cw->{'Delegates'})
   {
    my $specs = $cw->{'Delegates'};
-   if (%args)
+   while (@_)
     {
-     my ($key,$val);
-     while (($key,$val) = each %args)
-      {
-       $specs->{$key} = $val;
-      }
+     my $key = shift;
+     my $val = shift;
+     $specs->{$key} = $val;
     }
   }
  else
   {
-   $cw->{'Delegates'} = \%args;
+   $cw->{'Delegates'} = { @_ };
   }
  return $cw->{'Delegates'}
 }
@@ -214,37 +222,62 @@ sub Construct
 {
  my ($base,$name) = @_;
  my $class = (caller(0))[0];
+ no strict 'refs';
 
  # DelegateFor  trickyness is to allow Frames and other derived things
  # to force creation in a delegate e.g. a ScrlText with embeded windows
  # need those windows to be children of the Text to get clipping right
  # and not of the Frame which contains the Text and the scrollbars.
 
- *{"$name"} = sub { $class->new(shift->DelegateFor('Construct'),@_) };
- *{"Is$name"} = \&False;
+ *{$base.'::'."$name"}  = sub { $class->new(shift->DelegateFor('Construct'),@_) };
+ *{$base.'::Is'.$name}  = \&False;
  *{$class.'::Is'.$name} = \&True;
+}
+
+sub IS
+{
+ return (defined $_[1]) && $_[0] == $_[1];
 }
 
 sub AUTOLOAD
 {
  # Take a copy into a 'my' variable so we can recurse
  my $what = $Tk::Widget::AUTOLOAD;
- my $path = Tk::findINC("auto","$what.al");
- unless (defined($path))
+ my $save = $@;
+ my $name;
+ # Braces used to preserve $1 et al.
+ {
+  my ($pkg,$func) = $what =~ /(.*)::([^:]+)$/;
+  confess("Attempt to load '$what'") unless defined $pkg;
+  $pkg =~ s#::#/#g;
+  if (defined($name=$INC{"$pkg.pm"}))
+   {
+    $name =~ s#^(.*)$pkg\.pm$#$1auto/$pkg/$func.al#;
+   }
+  else
+   {
+    $name = "auto/$what.al";
+    $name =~ s#::#/#g;
+   }
+ }
+ # This may fail, catch error and prevent user's __DIE__ handler
+ # from triggering as well...
+ eval {local $SIG{'__DIE__'}; require $name};
+ if ($@)
   {
+   croak $@ unless ($@ =~ /Can't locate \Q$name\E/);
    my($package,$method) = ($what =~ /^(.*)::([^:]*)$/);
    if ($package eq 'Tk::Widget' && $method ne '__ANON__')
     {
-     eval { require "Tk/$method.pm" };
-     croak "$@" if ($@);
-     goto &$what;
+     # carp "Assuming 'require Tk::$method;'" if ($^W);
+     require "Tk/$method.pm";
     }
    else 
     {
      if (ref $_[0] && $method !~ /^(ConfigSpecs|Delegates)/ )
       {                                    
        my $delegate = $_[0]->Delegates;    
-       if (%$delegate)                     
+       if (%$delegate || tied %$delegate)                     
         {                                  
          my $widget = $delegate->{$method};
          $widget = $delegate->{DEFAULT} unless (defined $widget);
@@ -253,9 +286,9 @@ sub AUTOLOAD
            my $subwidget = (ref $widget) ? $widget : $_[0]->Subwidget($widget);
            if (defined $subwidget)         
             {                              
-#            print "AUTOLOAD: $what\n";
+             no strict 'refs';
+             # print "AUTOLOAD: $what\n";
              *{$what} = sub { shift->Delegate($method,@_) }; 
-             goto &$what;
             }                              
            else                            
             {                              
@@ -263,14 +296,46 @@ sub AUTOLOAD
             }                              
           }                                
         }                                  
+       if (!defined(&$what) && $method =~ /^[A-Z]\w+$/ && ref($_[0]) && $_[0]->isa('Tk::Widget'))
+        {
+         $what = "Tk::Widget::$method";
+         carp "Assuming 'require Tk::$method;'" if ($^W);
+         require "Tk/$method.pm";
+        }
       }                                    
     }
   }
- # Okay that did not work - call regular AutoLoader
- # Figure out how to 'inherit' this ...
- $AutoLoader::AUTOLOAD = $what;
- goto &AutoLoader::AUTOLOAD;
+ $@ = $save;
+ $DB::sub = $what; # Tell debugger what is going on...
+ goto &$what;
 }
+
+*isa = \&True if ($] <= 5.003);
+
+*configure_self = \&Tk::configure;
+*cget_self = \&Tk::cget;
+
+sub _Destroyed
+{ 
+ my $w = shift;
+ my $a = delete $w->{'_Destroy_'};
+ return unless ref $a;
+ while (@$a)
+  {
+   eval {local $SIG{'__DIE__'}; pop(@$a)->Call };
+  }
+}
+
+sub privateData
+{
+ my $w = shift;
+ my $p = shift || caller;
+ $w->{$p} ||= {};
+}
+
+1;                     
+
+__END__
 
 sub grabSave
 {
@@ -278,7 +343,7 @@ sub grabSave
  my $grab = $w->grabCurrent;
  return sub {} if (!defined $grab);
  my $method = ($grab->grabStatus eq 'global') ? 'grabGlobal' : 'grab';
- return sub { eval { $grab->$method() } };
+ return sub { eval {local $SIG{'__DIE__'};  $grab->$method() } };
 }
 
 sub focusCurrent
@@ -292,50 +357,55 @@ sub focusSave
  my ($w) = @_;
  my $focus = $w->focusCurrent;
  return sub {} if (!defined $focus);
- return sub { eval { $focus->focus } };
+ return sub { eval {local $SIG{'__DIE__'};  $focus->focus } };
 }
 
-sub place
+sub OnDestroy
 {
- require Tk::Pretty;
- &Tk::Pretty::PrintArgs;
  my $w = shift;
- if (@_ && $_[0] =~ /^(?:configure|forget|info|slaves)$/x)
+ $w->{'_Destroy_'} = [] unless (exists $w->{'_Destroy_'});
+ push(@{$w->{'_Destroy_'}},Tk::Callback->new(@_));
+}
+
+# This is supposed to replicate Tk::after behaviour,
+# but does auto-cancel when widget is deleted.
+
+
+sub after
+{
+ require Tk::After;
+ my $w = shift;
+ my $t = shift;
+ if (@_)
   {
-   $w->Tk::place(@_);
+   return Tk::After->new($w,$t,'once',@_) if ($t ne 'cancel');
+   while (@_)
+    {
+     my $what = shift;
+     if (ref $what)
+      {
+       $what->cancel;
+      }
+     else
+      {
+       carp "dubious cancel of $what";
+       $w->Tk::after('cancel' => $what);
+      }
+    }
   }
  else
   {
-   # Two things going on here:
-   # 1. Add configure on the front so that we can drop leading '-' 
-   eval { $w->Tk::place('configure',@_) };
-   croak "$@" if $@;
-   # 2. Return the widget rather than nothing
-   return $w;
+   $w->Tk::after($t);
   }
 }
 
-sub pack
+sub repeat
 {
+ require Tk::After;
  my $w = shift;
- if (@_ && $_[0] =~ /^(?:configure|forget|info|propagate|slaves)$/x)
-  {
-   $w->Tk::pack(@_);
-  }
- else
-  {
-   # Two things going on here:
-   # 1. Add configure on the front so that we can drop leading '-' 
-   eval { $w->Tk::pack('configure',@_) };
-   croak "$@" if $@;
-   # 2. Return the widget rather than nothing
-   return $w;
-  }
+ my $t = shift;
+ return Tk::After->new($w,$t,'repeat',@_);
 }
-
-1;
-
-__END__
 
 sub Inherit
 {
@@ -365,11 +435,6 @@ sub FindMenu
 {
  # default FindMenu is that there no menu.
  return undef;
-}
-
-sub IS
-{
- return (defined $_[1]) && $_[0] == $_[1];
 }
 
 sub XEvent { shift->{"_XEvent_"} }
@@ -567,7 +632,7 @@ sub RecolorTree
   {
    my $option = "-\L$dbOption";
    my $value;
-   eval { $value = $w->cget($option) };
+   eval {local $SIG{'__DIE__'}; $value = $w->cget($option) };
    if (defined $value)
     {
      if ($value eq $Palette->{$dbOption})
@@ -664,7 +729,7 @@ sub Busy
    $w->{'Busy'} = \%old;
   }
  $w->Tk::configure(%args);
- eval { $w->grab };
+ eval {local $SIG{'__DIE__'};  $w->grab };
  $w->update;
 }
 
@@ -765,6 +830,115 @@ sub XYscrollBind
  $mw->XscrollBind($class);
 }
 
+sub ScrlListbox
+{
+ my $parent = shift; 
+ return $parent->Scrolled('Listbox',-scrollbars => 'w', @_);
+}
+
+sub AddBindTag
+{
+ my ($w,$tag) = @_;
+ my $t;
+ my @tags = $w->bindtags;
+ foreach $t (@tags)
+  {
+   return if $t eq $tag;
+  }
+ $w->bindtags([@tags,$tag]);
+}
+
+sub Callback
+{
+ my $w = shift;
+ my $name = shift;
+ my $cb = $w->cget($name);
+ return $cb->Call(@_) if (defined $cb);
+ return (wantarray) ? () : undef;
+}
+
+sub packAdjust
+{
+ print 'packAdjust(',join(',',@_),")\n";
+ require Tk::Adjuster;
+ my ($w,%args) = @_;
+ my $delay = delete($args{'-delay'});
+ $delay = 1 unless (defined $delay);
+ $w->pack(%args);
+ %args = $w->packInfo;
+ my $adj = Tk::Adjuster->new($args{'-in'},
+            -widget => $w, -delay => $delay, -side => $args{'-side'});
+ $adj->packed($w,%args);
+ return $w;
+}
+
+sub gridAdjust
+{
+ require Tk::Adjuster;
+ my ($w,%args) = @_;
+ my $delay = delete($args{'-delay'});
+ $delay = 1 unless (defined $delay);
+ $w->grid(%args);
+ %args = $w->gridInfo;
+ my $adj = Tk::Adjuster->new($args{'-in'},-widget => $w, -delay => $delay);
+ $adj->gridded($w,%args);
+ return $w;
+}
+
+sub place
+{
+ local $SIG{'__DIE__'} = \&Carp::croak;
+ my $w = shift;
+ if (@_ && $_[0] =~ /^(?:configure|forget|info|slaves)$/x)
+  {
+   $w->Tk::place(@_);
+  }
+ else
+  {
+   # Two things going on here:
+   # 1. Add configure on the front so that we can drop leading '-' 
+   $w->Tk::place('configure',@_);
+   # 2. Return the widget rather than nothing
+   return $w;
+  }
+}
+
+sub pack
+{
+ local $SIG{'__DIE__'} = \&Carp::croak;
+ my $w = shift;
+ if (@_ && $_[0] =~ /^(?:configure|forget|info|propagate|slaves)$/x)
+  {
+   $w->Tk::pack(@_);
+  }
+ else
+  {
+   # Two things going on here:
+   # 1. Add configure on the front so that we can drop leading '-' 
+   $w->Tk::pack('configure',@_);
+   # 2. Return the widget rather than nothing
+   return $w;
+  }
+}
+
+sub grid
+{
+ local $SIG{'__DIE__'} = \&Carp::croak;
+ my $w = shift;
+ if (@_ && $_[0] =~ /^(?:bbox|columnconfigure|configure|forget|info|location|propagate|rowconfigure|size|slaves)$/x)
+  {
+   $w->Tk::grid(@_);
+  }
+ else
+  {
+   # Two things going on here:
+   # 1. Add configure on the front so that we can drop leading '-' 
+   $w->Tk::grid('configure',@_);
+   # 2. Return the widget rather than nothing
+   return $w;
+  }
+}
+
 sub Scrolled
 {
  my ($parent,$kind,%args) = @_;
@@ -772,18 +946,37 @@ sub Scrolled
  my $name = delete $args{'Name'};
  push(@args,'Name' => $name) if (defined $name);
  my $cw = $parent->Frame(@args);
- my $w  = $cw->$kind();
+ @args = ();
+ my $k;
+ # Need to consider other 'Frame' configure options...
+ foreach $k ('-scrollbars',map($_->[0],$cw->configure))
+  {
+   push(@args,$k,delete($args{$k})) if (exists $args{$k})
+  }
+ $cw->ConfigSpecs('-scrollbars' => ['METHOD','scrollbars','Scrollbars','se'],
+                  '-background' => ['CHILDREN','background','Background',undef], 
+                 );
+ my $w  = $cw->$kind(%args);
+ %args = @args;
  $cw->AddScrollbars($w);
- $cw->ConfigSpecs('-scrollbars' => ['METHOD','scrollbars','Scrollbars','se']);
  $cw->Default("\L$kind" => $w);
  $cw->ConfigDefault(\%args);
  $cw->configure(%args);
  return $cw;
 }
 
-sub ScrlListbox
+sub Populate
 {
- my $parent = shift; 
- return $parent->Scrolled('Listbox' => @_, -scrollbars => 'w');
+ my ($cw,$args) = @_;
 }
+
+sub ForwardEvent
+{
+ my $self = shift;
+ my $to   = shift;
+ $to->PassEvent($self->XEvent);
+}
+
+
+
 

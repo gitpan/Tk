@@ -32,7 +32,7 @@
 *  Developed by Arnaud Le Hors                                                *
 \*****************************************************************************/
 
-#include "xpmP.h"
+#include "XpmI.h"
 
 int
 XpmWriteFileFromPixmap(display, filename, pixmap, shapemask, attributes)
@@ -65,6 +65,8 @@ XpmWriteFileFromPixmap(display, filename, pixmap, shapemask, attributes)
 					attributes);
 
     /* destroy the ximages */
+    xpmFreeImageData(ximage);
+    xpmFreeImageData(shapeimage);
     if (ximage)
 	XDestroyImage(ximage);
     if (shapeimage)

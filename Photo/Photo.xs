@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1995 Nick Ing-Simmons. All rights reserved.
+  Copyright (c) 1995-1997 Nick Ing-Simmons. All rights reserved.
   This program is free software; you can redistribute it and/or
   modify it under the same terms as Perl itself.
 */
@@ -10,18 +10,20 @@
 
 #define Tcl_Interp SV 
 
-#include "tkPort.h"
-#include "tkInt.h"
-#include "tkVMacro.h"
-#include "../tkGlue.h"
-#include "../tkGlue.m"
-#include "tkImgPhoto.h"
-#include "tkImgPhoto.m"
+#include "pTk/tkPort.h"
+#include "pTk/tkInt.h"
+#include "pTk/tkVMacro.h"
+#include "pTk/tkImgPhoto.h"
+#include "pTk/tkImgPhoto.m"
+#include "tkGlue.h"
+#include "tkGlue.m"
 
 DECLARE_VTABLES;
 
 
 MODULE = Tk::Photo	PACKAGE = Tk::Photo
+
+PROTOTYPES: DISABLE
 
 BOOT:
  {

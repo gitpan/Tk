@@ -1,1 +1,1 @@
-tkGC.o: tkGC.c tkPort.h tk.h Lang.h
+tkGC.o: tkGC.c tkPort.h Lang.h tkConfig.h tk.h tkUnixPort.h

@@ -1,10 +1,12 @@
-# simply split out of Tk-a5's Tk.pm
+# Copyright (c) 1995-1997 Nick Ing-Simmons. All rights reserved.
+# This program is free software; you can redistribute it and/or
+# modify it under the same terms as Perl itself.
 package Tk::Message;
 use AutoLoader;
 
 @ISA = qw(Tk::Widget);
 
-Tk::Widget->Construct('Message');
+Construct Tk::Widget 'Message';
 
 sub Tk_cmd { \&Tk::message }
 

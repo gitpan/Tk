@@ -1,3 +1,6 @@
+# Copyright (c) 1995-1997 Nick Ing-Simmons. All rights reserved.
+# This program is free software; you can redistribute it and/or
+# modify it under the same terms as Perl itself.
 package Tk::Widget;
 
 sub clipboardSet
@@ -12,7 +15,7 @@ sub clipboardCopy
  my $w = shift;
  if ($w->IS($w->SelectionOwner))
   {
-   $w->clipboardSet($w->SelectionGet);
+   $w->clipboardSet('--',$w->SelectionGet);
   }
 }
 
@@ -21,7 +24,7 @@ sub clipboardCut
  my $w = shift;
  if ($w->IS($w->SelectionOwner))
   {
-   $w->clipboardSet($w->SelectionGet);
+   $w->clipboardSet('--',$w->SelectionGet);
    $w->deleteSelected;
   }
 }
@@ -35,9 +38,8 @@ sub clipboardGet
 sub clipboardPaste
 {
  my $w = shift;
- local ($@);
- eval {$w->insert("insert",$w->clipboardGet)};
- carp("$@") if ($@);
+ local $@;
+ eval {local $SIG{__DIE__}; $w->insert("insert",$w->clipboardGet)};
 }
 
 # clipboardKeysyms --

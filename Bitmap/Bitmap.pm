@@ -1,11 +1,11 @@
 package Tk::Bitmap;
-require DynaLoader;
-require AutoLoader;
-@ISA = qw(DynaLoader Tk::Image);
+require Tk;
+require Tk::Image;
+@ISA = qw(Tk::Image);
 
-Tk::Image->Construct('Bitmap');
+Construct Tk::Image 'Bitmap';
 
-bootstrap Tk::Bitmap;
+bootstrap Tk::Bitmap $Tk::VERSION;
 
 sub Tk_image { 'bitmap' }
 

@@ -1,6 +1,6 @@
 =head1 NAME
 
-Beginings of a Ghostscript lowlevel PostScript viewing widget
+Ghostscript - Beginings of a lowlevel PostScript viewing widget
 
 =head1 SYNOPSIS
 
@@ -32,7 +32,7 @@ use Carp;
 use Tk::Pretty;
 
 @ISA = qw(Tk::Frame);
-Tk::Widget->Construct('Ghostscript');
+Construct Tk::Widget 'Ghostscript';
 
 sub Portrait   {  0}   # Normal portrait orientation 
 sub Landscape  { 90}   # Normal landscape orientation 

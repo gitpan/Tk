@@ -1,1 +1,2 @@
-tkProperty.o: tkProperty.c tkPort.h tkInt.h tk.h Lang.h
+tkProperty.o: tkProperty.c tkPort.h Lang.h tkConfig.h tk.h \
+ tkUnixPort.h tkInt.h

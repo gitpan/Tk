@@ -1,12 +1,13 @@
+# Copyright (c) 1995-1997 Nick Ing-Simmons. All rights reserved.
+# This program is free software; you can redistribute it and/or
+# modify it under the same terms as Perl itself.
 package Tk::Toplevel; 
 require Tk::Frame;
 require Tk::Wm;
-require Tk::Pretty;
 use AutoLoader;
-use Carp;
 @ISA = qw(Tk::Wm Tk::Frame);
 
-Tk::Widget->Construct('Toplevel');
+Construct Tk::Widget 'Toplevel';
 
 sub Tk_cmd { \&Tk::toplevel }
 
@@ -22,11 +23,8 @@ sub CreateArgs
 sub Populate
 {
  my ($cw,$arg) = @_;
- $cw->ConfigSpecs('-title',[METHOD,undef,undef,$cw->class],
-                  '-overanchor' => ['PASSIVE',undef,undef,undef],
-                  '-popanchor'  => ['PASSIVE',undef,undef,undef],
-                  '-popover'    => ['PASSIVE',undef,undef,undef] 
-                 );
+ $cw->SUPER::Populate($arg);
+ $cw->ConfigSpecs('-title',[METHOD,undef,undef,$cw->class]);
 }
 
 1;

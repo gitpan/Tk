@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 1995 Nick Ing-Simmons. All rights reserved.
+  Copyright (c) 1995-1997 Nick Ing-Simmons. All rights reserved.
   This program is free software; you can redistribute it and/or
   modify it under the same terms as Perl itself.
 */
@@ -8,25 +8,31 @@
 #include <perl.h>
 #include <XSUB.h>
 
-#include "../tkGlue.def"
+#include "tkGlue.def"
 
-#include "tkPort.h"
-#include "tkInt.h"
-#include "tkVMacro.h"
-#include "tix.h"
-#include "tixInt.h"
-#include "../tkGlue.h"
-#include "../tkGlue.m"
+#include "pTk/tkPort.h"
+#include "pTk/tkInt.h"
+#include "pTk/tkVMacro.h"
+#include "pTk/tix.h"
+#include "pTk/tixInt.h"
+#include "tkGlue.h"
+#include "tkGlue.m"
 
+#ifndef __WIN32__
 extern int Tix_MwmCmd _ANSI_ARGS_((ClientData,Tcl_Interp *,int, Arg *));
+#endif
 
 DECLARE_VTABLES;
 
 MODULE = Tk::Mwm	PACKAGE = Tk::Mwm
 
+PROTOTYPES: DISABLE
+
 BOOT:
  {
   IMPORT_VTABLES;
   /* Initialize the display item types */
+#ifndef __WIN32__
   Lang_TkCommand("mwm",Tix_MwmCmd);
+#endif
  }

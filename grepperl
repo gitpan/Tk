@@ -1,8 +1,14 @@
 #!/usr/local/bin/perl 
 
+use Getopt::Std;
+
+my %opt;
+
 use File::Find;
 
-$expr = shift;
+getopts("Flc",\%opt);
+
+$expr = shift unless ($opt{'F'});
 
 sub match
 {
@@ -11,9 +17,34 @@ sub match
    return 1 unless (/#!.*perl/);
    $unsure = 0;
   }
- if (/$expr/o)
+ if ($opt{'F'})
   {
-   print "$File::Find::dir/$file:$.: $_" 
+   if (/\bfont\b.*(["'])(-[^-]*){2,13}\1/i)
+    {
+     if ($opt{'l'})
+      {
+       print "$File::Find::dir/$file\n";
+       return 1;
+      }
+     $count++;
+     unless ($opt{'c'})
+      {
+       print "$File::Find::dir/$file:$.: $_" 
+      }
+    }
+  }
+ elsif (/$expr/o)
+  {
+   if ($opt{'l'})
+    {
+     print "$File::Find::dir/$file\n";
+     return 1;
+    }
+   $count++;
+   unless ($opt{'c'})
+    {
+     print "$File::Find::dir/$file:$.: $_" 
+    }
   }
  return 0;
 }
@@ -26,18 +57,24 @@ sub wanted
    local $unsure = !/\.p[ml]$/;
    local $file   = ($_);
    local ($_);
+   local $count = 0;
    open($file,"<$file") || die "Cannot open $file:$!";
    while (<$file>)
     {
      last if &match;
     }
    close($file);
+   if ($opt{'c'} && $count)
+    {
+     print "$File::Find::dir/$file: $count\n" 
+    }
   }
  elsif (-d $_)
   {
    $File::Find::prune = 1 if ($_ eq 'blib');
   }
 }
+
 
 @ARGV = '.' unless (@ARGV);
 

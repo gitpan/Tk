@@ -1,16 +1,18 @@
 package Tk::FileSelect; 
 
 use Tk qw(Ev);
-use Carp;
 use English;
 use strict;
+use Carp;
+require Tk::Listbox;
+require Tk::Button;
 require Tk::Dialog;
 require Tk::Toplevel;
 require Tk::LabEntry;       
 require Cwd;
 @Tk::FileSelect::ISA = qw(Tk::Toplevel);           
 
-Tk::Widget->Construct('FileSelect');
+Construct Tk::Widget 'FileSelect';
 
 =head1 NAME
 
@@ -21,7 +23,6 @@ FileSelect - a widget for choosing files
  use Tk::FileSelect;
 
  $FSref = $top->FileSelect(-directory => $start_dir);
-
                $top            - a window reference, e.g. MainWindow->new
                $start_dir      - the starting point for the FileSelect
  $FSref = $top->Show;
@@ -59,7 +60,7 @@ Klaus Lichtenwalder, Lichtenwalder@ACM.org, Datapat GmbH, Munich, April 22, 1995
 adapted by  Frederick L. Wagner, derf@ti.com, Texas Instruments Incorporated, Dallas, 21Jun95
 
 =head1 HISTORY 
- 
+
  950621 -- The following changes were made:
    1: Rewrote Tk stuff to take advantage of new Compound widget module, so
       FileSelect is now composed of 2 LabEntry and 2 ScrlListbox2 
@@ -109,6 +110,11 @@ adapted by  Frederick L. Wagner, derf@ti.com, Texas Instruments Incorporated, Da
     $P1 .. $Pn are your optional parameters.  The subroutine should return TRUE
     if success or FALSE if failure.
 
+ 961008 -- derf@ti.com :
+   By request of Jim Stern <js@world.northgrum.com> and Brad Vance
+   <bvance@ti.com>, I updated the Accept and Show functions to support 
+   selection of multiple files.  I also corrected a typo in the -verify code.
+
 =cut 
 
 sub Cancel
@@ -125,6 +131,7 @@ sub Accept {
 
     my($path, $so) = ($cw->cget('-directory'), $cw->SelectionOwner);
     my $leaf = undef;
+    my $leaves;
     my %error_text = (
         '-r' => 'is not readable by effective uid/gid',
         '-w' => 'is not writeable by effective uid/gid',
@@ -157,19 +164,21 @@ sub Accept {
 
     if (defined $so and
 	  $so == $cw->Subwidget('dir_list')->Subwidget('listbox')) {
-	$leaf = $cw->Subwidget('dir_list')->Getselected;
-	$leaf = $cw->Subwidget('dir_entry')->get if not defined $leaf;
+	$leaves = [$cw->Subwidget('dir_list')->Getselected];
+	$leaves = [$cw->Subwidget('dir_entry')->get] if !scalar(@$leaves);
     } else {
-	$leaf = $cw->Subwidget('file_list')->Getselected;
-	$leaf = $cw->Subwidget('file_entry')->get if not defined $leaf;
+	$leaves = [$cw->Subwidget('file_list')->Getselected];
+	$leaves = [$cw->Subwidget('file_entry')->get] if !scalar(@$leaves);
     }
 
-    if (defined $leaf and $leaf ne '') {
+    foreach $leaf (@$leaves)
+    {
+      if (defined $leaf and $leaf ne '') {
 	foreach (@{$cw->cget('-verify')}) {
 	    my $r = ref $_;
 	    if (defined $r and $r eq 'ARRAY') {
 		#local $_ = $leaf; # use strict var problem here
-		return if not &{$_->[0]}($path, $leaf, $_->[1]..$_->[$#{$_}]);
+		return if not &{$_->[0]}($cw, $path, $leaf, @{$_}[1..$#{$_}]);
 	    } elsif ($_ eq '!-d') {
 		if (-d "$path/$leaf") {
 		    $cw->Subwidget('dialog')->configure(
@@ -184,7 +193,7 @@ sub Accept {
 		if (not $s) {
 		    my $err;
 		    $err = $error_text{$_} ?  $error_text{$_} : 
-		        "failed an UNKOWN test '$_'!";
+		        "failed an UNKNOWN test '$_'!";
 		    $cw->Subwidget('dialog')->configure(
                         -text => "Name '$leaf' $err.",
 		    );
@@ -193,11 +202,16 @@ sub Accept {
 		}
 	    }
 	} # forend
-	$leaf = [map( $path . '/' . $_, $leaf)];
-    } else {
+	$leaf = $path . '/' . $leaf;
+      } else {
 	$leaf =  undef;
+      }
     }
-    $cw->{Selected} = $leaf if defined $leaf;
+    if (scalar(@$leaves))
+    {
+      my $sm = $cw->Subwidget('file_list')->cget(-selectmode);
+      $cw->{Selected} = $leaves;
+    }
 
 } # end Accept
 
@@ -251,19 +265,17 @@ sub Populate {
     # Add a label.
     
     my $f = $w->Frame();
-    $f->pack(-side => 'right', -fill => 'y');
+    $f->pack(-side => 'right', -fill => 'y', -expand => 0);
     $b = $f->Button('-text' => 'Accept', -command => [ 'Accept', $w ]);
     $b->pack(-side => 'top', -fill => 'x', -expand => 1);
     $b = $f->Button('-text' => 'Cancel', -command => [ 'Cancel', $w ]);
     $b->pack(-side => 'top', -fill => 'x', -expand => 1);
-    $b = $f->Button(
-        '-text'  => 'Reset', 
-        -command => [$w => 'configure','-directory','.'],
+    $b = $f->Button( '-text'  => 'Reset', 
+                     -command => [$w => 'configure','-directory','.'],
     );
     $b->pack(-side => 'top', -fill => 'x', -expand => 1);
-    $b = $f->Button(
-        '-text'  => 'Home', 
-        -command => [$w => 'configure','-directory',$ENV{'HOME'}],
+    $b = $f->Button( '-text'  => 'Home', 
+                     -command => [$w => 'configure','-directory',$ENV{'HOME'}],
     );
     $b->pack(-side => 'top', -fill => 'x', -expand => 1);
     
@@ -287,8 +299,8 @@ sub Populate {
     );
     
     $w->ConfigSpecs(
-        -width           => [ ['file_list','dir_list'], undef, undef, 20 ], 
-	-height          => [ ['file_list','dir_list'], undef, undef, 20 ], 
+        -width           => [ ['file_list','dir_list'], undef, undef, 14 ], 
+	-height          => [ ['file_list','dir_list'], undef, undef, 14 ], 
 	-directory       => [ 'METHOD', undef, undef, '.' ],
 	-filelabel       => [ 'PASSIVE', undef, undef, 'File' ],
 	-filelistlabel   => [ 'PASSIVE', undef, undef, 'Files' ],
@@ -360,7 +372,7 @@ sub directory
    unless ($cw->{'reread'}++)
     {
      $cw->Busy;
-     $cw->DoWhenIdle(['reread',$cw,$val]) 
+     $cw->afterIdle(['reread',$cw,$val]) 
     }
   }
  return $$var;
@@ -369,66 +381,69 @@ sub directory
 sub reread
 { 
  my ($w,$dir) = @_;
- my $pwd    = Cwd::getcwd();
- if (chdir($dir))
+ my $pwd = Cwd::getcwd();
+ unless ($^T)
   {
-   my $new = Cwd::getcwd();
-   if ($new)
+   if (chdir($dir))
     {
-     $dir = $new;
+     my $new = Cwd::getcwd();
+     if ($new)
+      {
+       $dir = $new;
+      }
+     else
+      {
+       carp "Cannot getcwd in '$dir'" unless ($new);
+      }
+     chdir($pwd) || carp "Cannot chdir($pwd) : $!"; 
     }
    else
     {
-     carp "Cannot getcwd in '$dir'" unless ($new);
-    }
-   chdir($pwd) || carp "Cannot chdir($pwd) : $!"; 
-   if (opendir(DIR, $dir))                            
-    {                                                 
-     $w->Subwidget('dir_list')->delete(0, "end");       
-     $w->Subwidget('file_list')->delete(0, "end");      
-     my $accept = $w->cget('-accept');                  
-     my $f;                                           
-     foreach $f (sort(readdir(DIR)))                  
-      {                                               
-       next if ($f eq '.');                           
-       my $path = "$dir/$f";                          
-       if (-d $path)                                  
-        {                                             
-         $w->Subwidget('dir_list')->insert('end', $f);
-        }                                             
-       else                                           
-        {                                             
-         if (&{$w->{match}}($f))                       
-          {                                            
-           if (!defined($accept) || $accept->Call($path))
-            {                                          
-             $w->Subwidget('file_list')->insert('end', $f) 
-            }                                          
-          }                                            
-        }                                             
-      }                                               
-     closedir(DIR);                                   
-     $w->{Configure}{'-directory'} = $dir;                                        
      $w->Unbusy;                                        
      $w->{'reread'} = 0;                                
      $w->{Directory} = $dir . "/" . $w->cget('-filter');
-    }                                                 
-   else
-    {
-     my $panic = $w->{Configure}{'-directory'};
-     $w->Unbusy;                                        
-     $w->{'reread'} = 0;                                
-     chdir($panic) || croak "Cannot chdir($panic) : $!";
-     $w->{Directory} = $dir . "/" . $w->cget('-filter');
-     croak "Cannot opendir('$dir') :$!";
+     $w->BackTrace("Cannot chdir($dir) :$!");
     }
   }
- else
-  {
+ if (opendir(DIR, $dir))                            
+  {                                                 
+   $w->Subwidget('dir_list')->delete(0, "end");       
+   $w->Subwidget('file_list')->delete(0, "end");      
+   my $accept = $w->cget('-accept');                  
+   my $f;                                           
+   foreach $f (sort(readdir(DIR)))                  
+    {                                               
+     next if ($f eq '.');                           
+     my $path = "$dir/$f";                          
+     if (-d $path)                                  
+      {                                             
+       $w->Subwidget('dir_list')->insert('end', $f);
+      }                                             
+     else                                           
+      {                                             
+       if (&{$w->{match}}($f))                       
+        {                                            
+         if (!defined($accept) || $accept->Call($path))
+          {                                          
+           $w->Subwidget('file_list')->insert('end', $f) 
+          }                                          
+        }                                            
+      }                                             
+    }                                               
+   closedir(DIR);                                   
+   $w->{Configure}{'-directory'} = $dir;                                        
    $w->Unbusy;                                        
    $w->{'reread'} = 0;                                
    $w->{Directory} = $dir . "/" . $w->cget('-filter');
-   croak "Cannot chdir($dir) :$!";
+  }                                                 
+ else
+  {
+   my $panic = $w->{Configure}{'-directory'};
+   $w->Unbusy;                                        
+   $w->{'reread'} = 0;                                
+   chdir($panic) || $w->BackTrace("Cannot chdir($panic) : $!");
+   $w->{Directory} = $dir . "/" . $w->cget('-filter');
+   $w->BackTrace("Cannot opendir('$dir') :$!");
   }
 } 
 
@@ -471,7 +486,10 @@ sub Show
  $cw->focus;
  $cw->waitVariable(\$cw->{Selected});
  $cw->withdraw;
- return (wantarray) ? @{$cw->{Selected}} : $cw->{Selected}[0];
+ return defined($cw->{Selected}) 
+      ? (wantarray) ? @{$cw->{Selected}} : $cw->{Selected}[0]
+      : undef;
+
 }
 
 1;  

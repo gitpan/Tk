@@ -32,7 +32,7 @@
 *  Developed by Arnaud Le Hors                                                *
 \*****************************************************************************/
 
-#include "xpmP.h"
+#include "XpmI.h"
 
 #ifdef NEED_STRDUP
 /*
@@ -40,14 +40,14 @@
  * which does the trick
  */
 char *
-strdup(s1)
+xpmstrdup(s1)
     char *s1;
 {
     char *s2;
     int l = strlen(s1) + 1;
 
     if (s2 = (char *) XpmMalloc(l))
-	strncpy(s2, s1, l);
+	strcpy(s2, s1);
     return s2;
 }
 
@@ -108,4 +108,17 @@ int
 XpmLibraryVersion()
 {
     return XpmIncludeVersion;
+}
+
+
+/* The following should help people wanting to use their own functions */
+#ifdef XpmFree
+#undef XpmFree
+#endif
+
+void
+XpmFree(ptr)
+    void *ptr;
+{
+    free(ptr);
 }

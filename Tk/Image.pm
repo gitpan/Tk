@@ -1,38 +1,43 @@
+# Copyright (c) 1995-1997 Nick Ing-Simmons. All rights reserved.
+# This program is free software; you can redistribute it and/or
+# modify it under the same terms as Perl itself.
 package Tk::Image;
-
-use Carp;
 
 # This module does for images what Tk::Widget does for widgets:
 # provides a base class for them to inherit from.
+require DynaLoader;
 
-@ISA = qw(Tk); # but are they ?
+@Tk::Image::ISA = qw(DynaLoader Tk); # but are they ?
 
 sub new
 {
-# print "new(",join(',',@_),")\n";
  my $package = shift;
  my $widget  = shift;
  my $leaf = $package->Tk_image;
- my $obj = eval { $widget->image('create',$leaf,@_) };
- croak "$package: $@" if ($@);
- $obj = \"$obj" unless (ref $obj);
+ my $obj = $widget->image('create',$leaf,@_);
  return bless $obj,$package;
 }
 
-BEGIN 
+require Tk::Submethods;
+
+Direct Tk::Submethods ('image' => [qw(delete width height type)]);
+
+sub Tk::Widget::imageNames
 {
- my $fn;
- foreach $fn (qw(delete width height type))
-  {
-   *{"$fn"} = sub { shift->image("$fn",@_) }; 
-  }
+ my $w = shift;
+ $w->image('names',@_);
+}
+
+sub Tk::Widget::imageTypes
+{
+ my $w = shift;
+ map("\u$_",$w->image('types',@_));
 }
 
 sub Construct
 {
  my ($base,$name) = @_;
  my $class = (caller(0))[0];
-#print "$base->$name is $class\n";
  *{"Tk::Widget::$name"}  = sub { $class->new(@_) };
 }
 

@@ -2,9 +2,9 @@ package Tk::Mwm;
 require Tk;
 require DynaLoader;
 
-@ISA = qw(DynaLoader Tk::Widget);
+@ISA = qw(DynaLoader);
 
-bootstrap Tk::Mwm; 
+bootstrap Tk::Mwm $Tk::VERSION; 
 
 1;
 

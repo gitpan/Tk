@@ -1,18 +1,18 @@
 #!/usr/local/bin/perl -w
-use lib ('blib');
+
+use strict;
 use Tk;
-use Tk::Pretty;
+use Data::Dumper;
 use Tk::ErrorDialog;
 require Tk::Text;
-require Mail::RFC822;
-require News::NNTPClient;
+require Mail::Internet;
+require Net::NNTP;
 
 package News::Group;
-use Tk::Pretty;
 use Carp;
 
-%groups = ();
-@subscribed = ();
+my %groups = ();
+my @subscribed = ();
 
 sub new
 {
@@ -20,7 +20,8 @@ sub new
  my $obj;
  if (@_ == 1)
   {
-   my ($group,$state,$read) = /^([\w+.]+)([:!])\s*(.*)$/;
+   local $_ = shift;
+   my ($group,$state,$read) = /^([\w+.-]+)([:!])\s*(.*)$/;
    my @read = ();
    my %hash = (name => $group, subscribed => ($state eq ':'), Read => \@read);
    if (defined $read)
@@ -180,6 +181,7 @@ sub ReadRC
  my $path = "$ENV{'HOME'}/.Newsrc";
  if (open(RC,"<$path"))
   {
+   local $/ = "\n";
    while (<RC>)
     {
      $class->new($_);
@@ -236,25 +238,29 @@ sub find
 package main;
 
 my $mw    = MainWindow->new;
-my $news  = new News::NNTPClient;
+my $news  = new Net::NNTP;
 my $group = 'comp.lang.perl.tk';
 
 sub SetGroup
 {
  my ($lb,$group) = @_;
  $lb->{Group} = News::Group->find($group);
- my ($start,$end) = $news->group($group);
+ my ($count,$start,$end,$name) = $news->group($group);
  $lb->delete(0,'end');
  $lb->Busy;
  while ($start <= $end)
   {
    unless ($lb->{Group}->read($start))
     {
-     foreach ($news->xover($start,$start))
+     my $head = $news->head($start);
+     if ($head)
       {
-       my ($num,$subj,$who,$date,$id,$xref,$chars,$lines,@fields) 
-          = split(/\t/,$_);
-       $lb->insert('end',join(' ',$num,$subj,$who));
+       my $mail = Mail::Internet->new($head);
+       my @info = (sprintf("%6d",$start));
+       push(@info,scalar $mail->get('Subject'));
+       push(@info,scalar $mail->get('Date'));
+       push(@info,scalar $mail->get('From'));
+       $lb->insert('end',join(' ',@info));
       }
     }
    $start++;
@@ -263,12 +269,14 @@ sub SetGroup
  $lb->focus;
 }
 
+my $n = 0;
+
 sub Reply
 {
  my ($text) = @_;
  my @lines  = split(/\n/,$text->get('1.0','end'));
  foreach (@lines) { $_ .= "\n"; s/^Message-ID:/Message-Id:/ };
- my $mail = Mail::RFC822->new(\@lines);
+ my $mail = Mail::Internet->new(\@lines);
  $mail->remove_sig;
  $mail->tidy_body;
  my $id = $mail->get('Message-Id');
@@ -304,11 +312,11 @@ sub GetArticle
  die "No group" unless (defined $group);
  my ($art) = ($sel =~ /^\s*(\d+)/);
  die "No arg in '$sel'" unless (defined $art);
- my @text  = $news->article($art);
+ my $data = $news->article($art);
  $text->delete('1.0','end');
  $text->Busy;
  my $header = 1;
- foreach (@text)
+ foreach (@$data)
   {
    if ($header && /^([^:]+):/)
     {
@@ -332,10 +340,10 @@ my $mb = $menubar->Menubutton(-text => 'File', -underline => 0)->pack(-side => '
 $mb->command(-label => 'Save', -underline => 0, 
              -command => sub { $mb->Busy; News::Group->SaveRC; $mb->Unbusy } );
 $mb->command(-label => 'Quit', -underline => 0, -command => [ destroy => $mw ]);
-my $text = $mw->ScrlText(-scrollbars => 'sw',-wrap => 'none');
+my $text = $mw->Scrolled('Text', -scrollbars => 'osow',-wrap => 'none');
 $mb->command(-label => 'Reply', -underline => 0, -command => [ \&Reply, $text ]);
 
-my $list = $mw->ScrlListbox(-scrollbars => 'sw');
+my $list = $mw->Scrolled('Listbox',-scrollbars => 'osow');
 $list->pack(-fill => 'both', -expand => 'y');
 
 $list->bind('<1>','focus');

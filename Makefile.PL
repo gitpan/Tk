@@ -1,139 +1,226 @@
-use ExtUtils::MakeMaker qw(%att &WriteMakefile);
+use Cwd;
+no  lib '.';
+BEGIN 
+ {
+  $IsWin32   = $^O eq 'MSWin32';
+  $VERSION = '402.000';
 
-$Version = 'b9';
+  $win_arch = ($IsWin32) ? $^O : 'x';		# Currently 'x' and 'open32' supported
 
-$define = '-DBASEEXT=\\"$(BASEEXT)\\"';
-$define .= " -DNTK_VERSION=\\\"$Version\\\"";
-$inc    = "";
-$xlib   = "";
-require './myConfig';
-require './MMutil';
+  require "./myConfig";
+  use lib ($Tk::MMutil::dir=getcwd);
+ }
 
-# The existence of the ./*/Makefile.PL file causes MakeMaker
-# to automatically include Makefile code for the targets
-#	config, all, clean, realclean and */Makefile
-# which perform the corresponding action in the subdirectory.
-                           
-WriteMakefile(
+use Tk::MMutil;
+
+if ($IsWin32)
+ {
+  *MY::makeaperl = \&makeWin32perl;
+ }
+else
+ {
+  @libs = ("$xlib -lX11 -lpt -lsocket -lnsl -lm") unless $IsWin32;
+ }
+
+Tk::MMutil::TkExtMakefile(
+    'VERSION'  => $VERSION,
     'NAME'     => 'Tk',
     'DISTNAME' => "Tk",
-    'VERSION'  => $Version,
-    'MYEXTLIB' => 'pTk/libpTk.a',
-    'DEFINE'  => $define, 
-    'INC'     => $inc,
-#   'PM'      => $pm,
-    'OBJECT'  => '$(BASEEXT).o tkGlue.o leak_util.o',
-    'LIBS'    => ["$xlib -lX11 -lpt -lsocket -lnsl -lm"],
-    'clean' 	=> {'FILES' => 'libpTk.a *%'},
-    'MAP_TARGET' => 'tkperl'
-);
-
-sub Hide::staticmake {
-    my($self, %attribs) = @_;
-    my $rules = "";
-
-    my(%searchdirs)=($att{PERL_ARCHLIB} => 1,  $att{INST_ARCHLIB} => 1);
-    my(@searchdirs)=keys %searchdirs;
-    # And as it's not yet built, we add the current extension
-    my(@static)  = ();
-    my $name;
-    foreach $name ("$att{BASEEXT}.xs",<*/*.xs>)
-     {
-      $name =~ s/\.xs$/\.a/;
-      my $dep = "\$(INST_ARCHLIB)/auto/$att{FULLEXT}/$name";
-      push(@static,$dep);
-      $rules .= "$dep : ";
-      $rules .= (($name =~ m#/#) ? "subdirs" : 'config') . "\n\n";
-     }
- 
-    my(@perlinc) = ($att{INST_ARCHLIB}, $att{INST_LIB}, $att{PERL_ARCHLIB}, $att{PERL_LIB});
-    $rules .= MY->makeaperl('MAKE' => $att{MAKEFILE}, 
-			     'DIRS' => \@searchdirs, 
-			     'STAT' => \@static, 
-			     'INCL' => \@perlinc,
-			     'TARGET' => $att{MAP_TARGET},
-			     'TMP' => "",
-			     'LIBPERL' => $att{LIBPERL_A}
-			     );
-   $rules; 
-}
-
-
-sub Hide::post_initialize {
- my $dir = `pwd`;
- chomp($dir);
- while (($key,$val) = each %att)
-  {
-   if (defined $val && $val =~ m#^\./blib$#)
-    {
-     $val =~ s,\./,$dir/,;
-     $att{$key} = $val;
-    }
-  }
- "# MM version $ExtUtils::MakeMaker::Version\n";
-}
-
-
-sub MY::post_constants {
- my @m;
- push @m, "
-.SUFFIXES:
-.SUFFIXES:     .a .o .c .xs
-";
- push @m, &upgrade_pic();
- join "", @m;
-}
-
-
+    'MYEXTLIB' => 'pTk/libpTk$(LIB_EXT)' . ($win_arch eq 'open32'
+					    ? ' pTk/dllInit$(LIB_EXT)'
+					    : ''),
+    'LIBS'    => \@libs,
+    'OBJECT'  => '$(O_FILES)',
+    'MAP_TARGET' => 'tkperl$(EXE_EXT)',
+    'clean'      => { FILES => 'pTk/tkConfig.h Tk/Config.pm' },
+    @macro
+   );
+                           
 sub MY::test {
 '
-test : all
+TEST_VERBOSE=0
+TEST_TYPE=test_$(LINKTYPE)
+
+test :: $(TEST_TYPE)
+
+test_dynamic :: all
 	$(PERL) -I$(INST_ARCHLIB) -I$(INST_LIB) demos/widget
+
+test_ : test_dynamic
+
+test_static :: all $(MAP_TARGET)
+	./$(MAP_TARGET) -I$(INST_ARCHLIB) -I$(INST_LIB) demos/widget
+
 ';
+}
+
+sub MY::top_targets
+{
+ my ($self) = @_;
+ my $str = $self->MM::top_targets;
+ $str =~ s/\bmanifypods\b/html/g;
+ return $str;
+}
+
+sub MY::post_initialize
+{
+ my ($self) = @_;
+ my %files = ();
+ my $dir = $self->catdir('$(INST_ARCHLIBDIR)','Tk');
+ my $name;
+ foreach $name (grep /%$/,keys %{$self->{PM}})
+  {
+   delete $self->{PM}->{$name};
+  }
+ delete $self->{PM}->{'Tk/Config.pm'};
+ $self->{PM}->{'Tk/Config.pm'} = $self->catfile($dir,'Config.pm');
+ # $files{'typemap'} = 1;
+ foreach $name ($self->lsdir("."))
+  {
+   next if ($name =~ /^\./);
+   next unless (-f $name);
+   $files{$name} = 1 if ($name =~ /\.[tm]$/);
+   $files{$name} = 1 if ($name =~ /\.def$/);
+  }
+ foreach $name (sort(@{$self->{H}},keys %files))
+  {
+   $self->{PM}->{$name} = $self->catfile($dir,$name);
+  }
+ if ($^O eq 'MSWin32')
+  {
+   push(@{$self->{'O_FILES'}},'pTk\tk.res');
+  }
+ '';
 }
 
 sub MY::postamble {
     '
-subdirs      :: $(MYEXTLIB) 
+
+html : subdirs manifypods
+	@cd doc && $(MAKE) html $(PASTHRU)
+
 config       :: tkGlue.t
 
+$(BASEEXT)$(OBJ_EXT) : tkGlue.h
+tkGlue$(OBJ_EXT)     : tkGlue.c tkGlue.h pTk/Methods.def tkGlue.t
 Makefile     : myConfig
-$(BASEEXT).o : tkGlue.h
-tkGlue.o     : tkGlue.c tkGlue.h pTk/Methods.def tkGlue.t
-
 
 tkGlue.t     : tkGlue.h pTk/mkVFunc
-	$(PERL) pTk/mkVFunc tkGlue.h
+	$(PERL) pTk/mkVFunc $(WINARCH) tkGlue.h
 
 $(MYEXTLIB)  : config FORCE
-	cd pTk; $(MAKE) libpTk.a
+	cd pTk && $(MAKE) 
 
 perlmain.c : config Makefile
 
 pTk/Methods.def : $(MYEXTLIB)
+pTk/tk.res      : $(MYEXTLIB)
 
-installpm   :: $(INST_PM)
+MANIFEST : MANIFEST.SKIP $(FIRST_MAKEFILE)
+	$(MAKE) manifest 
 
 ';
 }
 
-sub Hide::installpm_x { # called by installpm per file
-    my($self, $dist, $inst, $splitlib) = @_;
-    warn "Warning: Most probably 'make' will have problems processing this file: $inst\n"
-	if $inst =~ m![:#]!;
-    my($instdir) = $inst =~ m|(.*)/|;
+sub makeWin32perl
+{
+    my($self, %attribs) = @_;
+    my($makefilename, $searchdirs, $static, $extra, $perlinc, $target, $tmp, $libperl) =
+	@attribs{qw(MAKE DIRS STAT EXTRA INCL TARGET TMP LIBPERL)};
     my(@m);
-    push(@m,"
-$inst: $dist $att{MAKEFILE} $instdir/.exists
-".'	@ '.$att{RM_F}.' $@
-	'."$att{CP} $dist".' $@
-	@echo $@ >> $(INST_ARCHAUTODIR)/.packlist
-');
-    push(@m, "\t\@\$(AUTOSPLITFILE) \$@ $splitlib/auto\n")
-	if ($splitlib and $inst =~ m/\.pm$/);
+    push @m, "# Tk Win32 makeaperl
+MAP_TARGET    = $target
+FULLPERL      = $self->{FULLPERL}
+";
+    return join '', @m if $self->{PARENT};
+    $tmp = "." unless $tmp;
 
-    push @m, MM->dir_target($instdir);
-    join('', @m);
+    my($dir) = join ":", @{$self->{DIR}};
+
+    my($cccmd, $linkcmd, $lperl);
+
+    # We trust that what has been handed in as argument, will be buildable
+    $static = [] unless $static;
+    @static{@{$static}} = (1) x @{$static};
+
+    grep(s/^/-I/, @{$perlinc || []});
+
+    $target = "perl" unless $target;
+
+# MAP_STATIC doesn't look into subdirs yet. Once "all" is made and we
+# regenerate the Makefiles, MAP_STATIC and the dependencies for
+# extralibs.all are computed correctly
+    push @m, "
+MAP_LINKCMD   = link 
+MAP_PERLINC   = @{$perlinc || []}
+MAP_STATIC    = ",
+join(" \\\n\t", reverse sort keys %static), " \$(MYEXTLIB) 
+
+MAP_PRELIBS   = \$(guilibsdll)
+";
+
+    if (defined $libperl) {
+	($lperl = $libperl) =~ s/\$\(A\)/$self->{LIB_EXT}/;
+    }
+    unless ($libperl && -f $lperl) { # Ilya's code...
+	my $dir = $self->{PERL_SRC} || "$self->{PERL_ARCHLIB}/CORE";
+	$libperl ||= "perl$self->{LIB_EXT}";
+	$libperl   = "$dir/$libperl";
+	$lperl   ||= "perl$self->{LIB_EXT}";
+	$lperl     = "$dir/$lperl";
+
+        if (! -f $libperl and ! -f $lperl) {
+          # We did not find a static libperl. Maybe there is a shared one?
+          if ($^O eq 'solaris' or $^O eq 'sunos') {
+            $lperl  = $libperl = "$dir/$Config::Config{libperl}";
+            # SUNOS ld does not take the full path to a shared library
+            $libperl = '' if $^O eq 'sunos';
+          }
+        }
+
+	print STDOUT "Warning: $libperl not found
+    If you're going to build a static perl binary, make sure perl is installed
+    otherwise ignore this warning\n"
+		unless (-f $lperl || defined($self->{PERL_SRC}));
+    }
+
+    $libperl =~ s/libperl/perl/;
+
+    push @m, "
+MAP_LIBPERL = $libperl
+MAP_LDFLAGS = \$(guilflags)
+";
+
+push (@m, "
+$tmp/perlmain\$(OBJ_EXT): $tmp/perlmain.c
+	cd $tmp && \$(CCCMD) -I\$(PERL_INC) perlmain.c\n");
+
+    push @m, qq{
+$tmp/perlmain.c: $makefilename}, q{
+	}.$self->{NOECHO}.q{echo Writing $@
+	}.$self->{NOECHO}.q{$(PERL) $(MAP_PERLINC) -MExtUtils::Miniperl \\
+		-e "writemain(grep s#.*/auto/##, qw|$(MAP_STATIC)|)" > $@t && $(MV) $@t $@
+
+};
+
+    push (@m,"
+\$(MAP_TARGET) :: $tmp/perlmain\$(OBJ_EXT) \$(MAP_LIBPERL) \$(MAP_STATIC) 
+	link -out:\$\@ \$(MAP_LDFLAGS) $tmp/perlmain\$(OBJ_EXT) \$(MAP_STATIC) \$(MAP_LIBPERL) \$(MAP_PRELIBS)
+");
+
+
+    push @m, q{
+inst_perl: pure_inst_perl doc_inst_perl
+
+pure_inst_perl: $(MAP_TARGET)
+	}.$self->{CP}.q{ $(MAP_TARGET) }.$self->catfile('$(INSTALLBIN)','$(MAP_TARGET)').q{
+
+clean :: map_clean
+
+map_clean :
+	}.$self->{RM_F}.qq{ $tmp/perlmain\$(OBJ_EXT) $tmp/perlmain.c \$(MAP_TARGET) 
+};
+
+    join '', @m;
+
 }
-
-

@@ -1,62 +1,160 @@
 /*
-  Copyright (c) 1995 Nick Ing-Simmons. All rights reserved.
+  Copyright (c) 1995-1997 Nick Ing-Simmons. All rights reserved.
   This program is free software; you can redistribute it and/or
   modify it under the same terms as Perl itself.
 */
 
-#include "EXTERN.h"
-#include "perl.h"
-#include "XSUB.h"
+#include <EXTERN.h>
+#include <perl.h>
+#include <XSUB.h>
 
 #include "tkGlue.def"
 
 #include "pTk/tkPort.h"
 #include "pTk/tkInt.h"
+#include "pTk/tkXrm.h"
+#include "pTk/default.h"
+
+#ifdef __WIN32__
+#include "pTk/tkWinInt.h"
+#endif
+
 #include "tkGlue.h"
 #include "leak_util.h"
 
-Tk_Window mainWindow = NULL;
+#ifdef NEED_PRELOAD
+#ifdef I_DLFCN
+#include <dlfcn.h>	/* the dynamic linker include file for Sunos/Solaris */
+#else
+#include <nlist.h>
+#include <link.h>
+#endif
+#define NeedPreload() 1
+#else
+#define NeedPreload() 0
+#endif
+
+static void
+DebugHook(sv)
+SV *sv;
+{
+
+}
+
+#define Tk_XRaiseWindow(w) XRaiseWindow(Tk_Display(w),Tk_WindowId(w))
+
+#define Const_DONT_WAIT()     (TCL_DONT_WAIT)
+#define Const_WINDOW_EVENTS() (TCL_WINDOW_EVENTS)
+#define Const_FILE_EVENTS()   (TCL_FILE_EVENTS)
+#define Const_TIMER_EVENTS()  (TCL_TIMER_EVENTS)
+#define Const_IDLE_EVENTS()   (TCL_IDLE_EVENTS)
+#define Const_ALL_EVENTS()    (TCL_ALL_EVENTS)
+
+#ifndef SELECT_FG
+/* Should really depend on color/mono */
+#define SELECT_FG BLACK
+#endif
+
+#define Const_NORMAL_BG()     (NORMAL_BG)
+#define Const_ACTIVE_BG()     (ACTIVE_BG)
+#define Const_SELECT_BG()     (SELECT_BG)
+#define Const_SELECT_FG()     (SELECT_FG)
+#define Const_TROUGH()        (TROUGH)
+#define Const_INDICATOR()     (INDICATOR)
+#define Const_DISABLED()      (DISABLED)
+#define Const_BLACK()         (BLACK)
+#define Const_WHITE()         (WHITE)
+
+static XFontStruct * TkwinFont _((Tk_Window tkwin, Tk_Uid name));
+
+static XFontStruct *
+TkwinFont(tkwin,name)
+Tk_Window tkwin;
+Tk_Uid name;
+{
+ XFontStruct *font = NULL;
+ Tcl_Interp *interp;
+ if (TkToWidget(tkwin,&interp) && interp)
+  font = Tk_GetFontStruct(interp, tkwin, name);
+ if (!font)
+  croak("Cannot get font");
+ return font;
+}
+
+#define Tk_FontAscent(tkwin,name)  (TkwinFont(tkwin,name)->ascent)
+#define Tk_FontDescent(tkwin,name) (TkwinFont(tkwin,name)->descent)
+
+
+MODULE = Tk	PACKAGE = Tk	PREFIX = Const_
+PROTOTYPES: ENABLE
+
+char *
+Const_BLACK()
+
+char *
+Const_WHITE()
+
+char *
+Const_NORMAL_BG()
+
+char *
+Const_ACTIVE_BG()
+
+char *
+Const_SELECT_BG()
+
+char *
+Const_SELECT_FG()
+
+char *
+Const_TROUGH()
+
+char *
+Const_INDICATOR()
+
+char *
+Const_DISABLED()
+
+
+IV
+Const_DONT_WAIT()     
+
+IV
+Const_WINDOW_EVENTS() 
+
+IV
+Const_FILE_EVENTS()
+
+IV
+Const_TIMER_EVENTS()  
+
+IV
+Const_IDLE_EVENTS()   
+
+IV
+Const_ALL_EVENTS()    
+
+MODULE = Tk	PACKAGE = Tk::Xrm	PREFIX = Xrm_
+PROTOTYPES: DISABLE
+
+void
+Xrm_import(class,...)
+char *	class
+
+
 
 MODULE = Tk	PACKAGE = MainWindow
+
+PROTOTYPES: DISABLE
 
 int
 Count(self)
 SV *	self
 CODE:
  {
-  ST(0) = sv_2mortal(newSViv(tk_NumMainWindows));
+  ST(0) = sv_2mortal(newSViv(Tk_GetNumMainWindows()));
  }
 
-
-SV *
-CreateMainWindow(name, Class, ...)
-	char *		name
-	char *		Class
-    CODE:
-       {
-        Tcl_Interp *interp = Tcl_CreateInterp(); 
-        char *display = NULL;
-        int  sync     = 0; 
-        RETVAL = &sv_undef; 
-        
-        if (items > 3)
-         display = (char *)SvPV(ST(2),na);
-
-        if (items > 4)
-          sync = (int)SvIV(ST(3));
-
-        if ((mainWindow = Tk_CreateMainWindow(interp, display, name, Class)))
-         {
-          if (sync)
-           XSynchronize(Tk_Display(mainWindow), True);
-
-          RETVAL = SvREFCNT_inc(TkToWidget(mainWindow,NULL));
-         }
-        else 
-         croak(Tcl_GetResult(interp));
-       }
-    OUTPUT:
-        RETVAL
 
 MODULE = Tk	PACKAGE = Leak
 
@@ -81,6 +179,9 @@ CODE:
 OUTPUT:
  RETVAL
 
+void
+check_arenas()
+
 MODULE = Tk	PACKAGE = Tk::Callback
 
 void
@@ -89,7 +190,7 @@ char *	package
 SV *	what
 CODE:
  {
-  ST(0) = sv_bless(LangMakeCallback(what),gv_stashpv(package, TRUE));
+  ST(0) = sv_2mortal(sv_bless(LangMakeCallback(what),gv_stashpv(package, TRUE)));
  }
 
 void 
@@ -97,10 +198,34 @@ DESTROY(object)
 SV *	object
 CODE:
  {
-  XSRETURN_UNDEF;
+  ST(0) = &sv_undef;
  }
 
 MODULE = Tk	PACKAGE = Tk	PREFIX = Tk
+
+int
+NeedPreload()
+
+void
+Preload(filename)
+    char *		filename
+    CODE:
+#ifdef NEED_PRELOAD
+    void *h = dlopen(filename, RTLD_LAZY|RTLD_GLOBAL) ;
+    if (!h)
+     croak("Cannot load %s",filename);
+#endif
+
+double
+timeofday()
+CODE:
+{
+ Tcl_Time t;
+ TclpGetTime(&t);
+ RETVAL = t.sec + (double) t.usec/1e6;
+}
+OUTPUT:
+ RETVAL
 
 TkWindow *
 TkGetFocus(win)
@@ -113,16 +238,11 @@ PPCODE:
  {
   int x, y;
   TkGetPointerCoords(win, &x, &y);
-  if (items < 2)
-   {
-    EXTEND(sp,2-items);
-   }
-  ST(0) = sv_2mortal(newSViv(x));
-  ST(1) = sv_2mortal(newSViv(y));
-  XSRETURN(2);
+  PUSHs(sv_2mortal(newSViv(x)));
+  PUSHs(sv_2mortal(newSViv(y)));
  }
 
-MODULE = Tk	PACKAGE = Tk	PREFIX = Tk_
+MODULE = Tk	PACKAGE = Tk	PREFIX = Tk_ 
 
 void
 EnterMethods(package,file,...)
@@ -151,10 +271,10 @@ CODE:
   RETVAL = -1;
   if (io)
    {
-    FILE *f = (w) ? IoOFP(io) : IoIFP(io);
+    PerlIO *f = (w) ? IoOFP(io) : IoIFP(io);
     if (f)          
      {              
-      RETVAL = fileno(f);
+      RETVAL = PerlIO_fileno(f);
      }              
    }
  }
@@ -166,35 +286,6 @@ Tk_MainLoop(class = "Tk")
 char *	class
 CODE:
  Tk_MainLoop(); 
-
-int
-Tk_DoOneEvent(...)
-CODE:
- {
-  int flags = 0;
-  if (items)
-   {int i;
-    for (i=0; i < items; i++)
-     {
-      SV *sv = ST(i);
-      if (SvIOK(sv))
-       flags |= SvIV(sv);
-      else if (!sv_isobject(sv))
-       {STRLEN l;
-        char *s = SvPV(sv,l);
-        if (strcmp(s,BASEEXT))
-         {
-          /* string to integer lookup here */
-          croak("Usage [$object->]DoOneEvent([flags]) got '%s'\n",s);
-         }
-       }
-     }
-   }
-  RETVAL = Tk_DoOneEvent(flags);
- }
-OUTPUT:
-  RETVAL
-
 
 MODULE = Tk	PACKAGE = Tk::Widget	PREFIX = Tk_
 
@@ -216,7 +307,8 @@ CODE:
   Tk_ChangeWindowAttributes(win, CWEventMask, Tk_Attributes(win));
  }
 
-void
+
+int
 SendClientMessage(win,type,xid,format,data)
 Tk_Window	win
 char *		type
@@ -238,15 +330,18 @@ CODE:
   cM.message_type = Tk_InternAtom(win,type);
   cM.format = format;
   memmove(cM.data.b,s,len);
-  if (XSendEvent(cM.display, cM.window, False, NoEventMask, (XEvent *) & cM))
+  if ((RETVAL = XSendEvent(cM.display, cM.window, False, NoEventMask, (XEvent *) & cM)))
    {
     /* XSync may be overkill - but need XFlush ... */
     XSync(cM.display, False);
-    XSRETURN_YES;
    }
-  croak("XSendEvent failed");
-  XSRETURN_NO;
+  else
+   {
+    croak("XSendEvent failed");
+   }
  }
+OUTPUT:
+  RETVAL
 
 void
 XSync(win,flush)
@@ -264,13 +359,8 @@ PPCODE:
  {
   int x, y;
   Tk_GetRootCoords(win, &x, &y);
-  if (items < 2)
-   {
-    EXTEND(sp, 2 - items);
-   }
-  ST(0) = sv_2mortal(newSViv(x));
-  ST(1) = sv_2mortal(newSViv(y));
-  XSRETURN(2);
+  PUSHs(sv_2mortal(newSViv(x)));
+  PUSHs(sv_2mortal(newSViv(y)));
  }
 
 void
@@ -281,16 +371,15 @@ PPCODE:
   int x, y;
   int width, height;
   Tk_GetVRootGeometry(win, &x, &y, &width, &height);
-  if (items < 4)
-   {
-    EXTEND(sp, 4 - items);
-   }
-  ST(0) = sv_2mortal(newSViv(x));
-  ST(1) = sv_2mortal(newSViv(y));
-  ST(2) = sv_2mortal(newSViv(width));
-  ST(3) = sv_2mortal(newSViv(height));
-  XSRETURN(4);
+  PUSHs(sv_2mortal(newSViv(x)));
+  PUSHs(sv_2mortal(newSViv(y)));
+  PUSHs(sv_2mortal(newSViv(width)));
+  PUSHs(sv_2mortal(newSViv(height)));
  } 
+
+Colormap
+Tk_Colormap(win)
+Tk_Window	win
 
 Display *
 Tk_Display(win)
@@ -375,6 +464,16 @@ char *		class
 
 void
 Tk_MoveWindow(win,x,y)
+Tk_Window	win
+int		x
+int		y
+
+void
+Tk_XRaiseWindow(win)
+Tk_Window	win
+
+void
+Tk_MoveToplevelWindow(win,x,y)
 Tk_Window	win
 int		x
 int		y
@@ -484,7 +583,7 @@ CODE:
    RETVAL = 0; 
   else
    {
-    Lang_CmdInfo *info = WindowCommand(win,NULL);
+    Lang_CmdInfo *info = WindowCommand(win,NULL,0);
     RETVAL = (info && info->tkwin);
    }
  }
@@ -497,7 +596,7 @@ SV *	win
 int	global
 CODE:
  {
-  Lang_CmdInfo *info = WindowCommand(win,NULL);
+  Lang_CmdInfo *info = WindowCommand(win,NULL,3);
   RETVAL = Tk_Grab(info->interp,info->tkwin,global);
  }
 
@@ -507,7 +606,7 @@ SV *	win
 char *	path
 CODE:
  {
-  Lang_CmdInfo *info = WindowCommand(win,NULL);
+  Lang_CmdInfo *info = WindowCommand(win,NULL,1);
   ST(0) = sv_mortalcopy(WidgetRef(info->interp,path));
  }
 
@@ -528,33 +627,88 @@ Tk_Parent(win)
 Tk_Window	win
 
 SV *
-MainWindow(win)
-	SV *	win
-    CODE:
+MainWindow(interp)
+Tcl_Interp *	interp
+CODE:
+ {
+  RETVAL = SvREFCNT_inc(WidgetRef(interp,".")); 
+ }
+OUTPUT:
+ RETVAL
+
+MODULE = Tk	PACKAGE = Tk	PREFIX = Tcl_
+
+void
+Tcl_Exit(status = 0)
+int	status
+
+void
+Tcl_AddErrorInfo(interp,message)
+Tcl_Interp *	interp
+char *		message
+
+void
+Tcl_BackgroundError(interp)
+Tcl_Interp *	interp
+
+int
+Tcl_DoOneEvent(...)
+CODE:
+ {
+  int flags = 0;
+  if (items)
+   {int i;
+    for (i=0; i < items; i++)
      {
-      RETVAL = SvREFCNT_inc(WidgetRef(WindowCommand(win,NULL)->interp,".")); 
+      SV *sv = ST(i);
+      if (SvIOK(sv) || looks_like_number(sv))
+       flags |= SvIV(sv);
+      else if (!sv_isobject(sv))
+       {STRLEN l;
+        char *s = SvPV(sv,l);
+        if (strcmp(s,BASEEXT))
+         {
+          /* string to integer lookup here */
+          croak("Usage [$object->]DoOneEvent([flags]) got '%s'\n",s);
+         }
+       }
      }
-    OUTPUT:
-     RETVAL
+   }
+  RETVAL = Tcl_DoOneEvent(flags);
+ }
+OUTPUT:
+  RETVAL
+
 
 MODULE = Tk	PACKAGE = Tk	PREFIX = Tk_
 
+IV
+Tk_FontAscent(win,name)
+Tk_Window	win
+Tk_Uid		name
+
+IV
+Tk_FontDescent(win,name)
+Tk_Window	win
+Tk_Uid		name
+
 void
-AddErrorInfo(win,message)
-SV *	win
-char *	message
-CODE:
- {
-  Tcl_AddErrorInfo(WindowCommand(win,NULL)->interp,message);
- }
+abort()
+
+void
+DebugHook(arg)
+SV *	arg
 
 void
 ClearErrorInfo(win)
 SV *	win
 
-
 BOOT:
  {
+#ifdef WIN32
+  /* Force inclusion of DllMain() */ 
+  TkWin32DllPresent(); 
+#endif
   Boot_Glue();
  } 
 

@@ -4,7 +4,7 @@ require Tk::Frame;
 
 $pi = atan2(1, 1) * 4;
 
-Tk::Widget->Construct('Dial');
+Construct Tk::Widget 'Dial';
 
 =head1 NAME
 
@@ -57,6 +57,7 @@ bradley@cis.upenn.edu
 =head1 HISTORY 
  
 August 1995: Released for critique by pTk mailing list
+
 =cut 
 
 

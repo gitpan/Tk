@@ -20,7 +20,7 @@
 
 #include <sys/types.h>
 #ifndef _TCL
-#   include "Lang.h"
+#   include "../Lang.h"
 #endif
 
 #ifndef NULL

@@ -1,12 +1,11 @@
 package Tk::InputO; 
 require Tk;
-require DynaLoader;
 
-@ISA = qw(DynaLoader Tk::Widget);
+@ISA = qw(Tk::Widget);
 
-Tk::Widget->Construct('InputO');
+Construct Tk::Widget 'InputO';
 
-bootstrap Tk::InputO; 
+bootstrap Tk::InputO $Tk::VERSION; 
 
 sub Tk_cmd { \&Tk::inputo }
 

@@ -32,10 +32,15 @@
 *  Developed by Arnaud Le Hors                                                *
 \*****************************************************************************/
 
-#include "xpmP.h"
+#include "XpmI.h"
+#if !defined(NO_ZPIPE) && defined(WIN32)
+# define popen _popen
+# define pclose _pclose
+#endif
 
-LFUNC(WriteFile, int, (FILE *file, XpmImage *image, char *name,
-		       XpmInfo *info));
+/* MS Windows define a function called WriteFile @#%#&!!! */
+LFUNC(xpmWriteFile, int, (FILE *file, XpmImage *image, char *name,
+			  XpmInfo *info));
 
 LFUNC(WriteColors, void, (FILE *file, XpmColor *colors, unsigned int ncolors));
 
@@ -99,29 +104,29 @@ XpmWriteFileFromXpmImage(filename, image, info)
 #ifdef VMS
 	name = filename;
 #else
-	if (!(name = rindex(filename, '/')))
+	if (!(name = strrchr(filename, '/')))
 	    name = filename;
 	else
 	    name++;
 #endif
 	/* let's try to make a valid C syntax name */
-	if ((dot = index(name, '.'))) {
+	if ((dot = strchr(name, '.'))) {
 	    strcpy(new_name, name);
 	    /* change '.' to '_' */
 	    name = s = new_name;
-	    while ((dot = index(s, '.'))) {
+	    while ((dot = strchr(s, '.'))) {
 		*dot = '_';
 		s = dot;
 	    }
 	}
-	if ((dot = index(name, '-'))) {
+	if ((dot = strchr(name, '-'))) {
 	    if (name != new_name) {
 		strcpy(new_name, name);
 		name = new_name;
 	    }
 	    /* change '-' to '_' */
 	    s = name;
-	    while ((dot = index(s, '-'))) {
+	    while ((dot = strchr(s, '-'))) {
 		*dot = '_';
 		s = dot;
 	    }
@@ -131,7 +136,7 @@ XpmWriteFileFromXpmImage(filename, image, info)
 
     /* write the XpmData from the XpmImage */
     if (ErrorStatus == XpmSuccess)
-	ErrorStatus = WriteFile(mdata.stream.file, image, name, info);
+	ErrorStatus = xpmWriteFile(mdata.stream.file, image, name, info);
 
     xpmDataClose(&mdata);
 
@@ -139,7 +144,7 @@ XpmWriteFileFromXpmImage(filename, image, info)
 }
 
 static int
-WriteFile(file, image, name, info)
+xpmWriteFile(file, image, name, info)
     FILE *file;
     XpmImage *image;
     char *name;
@@ -288,7 +293,7 @@ OpenWriteFile(filename, mdata)
     char *filename;
     xpmData *mdata;
 {
-#ifdef ZPIPE
+#ifndef NO_ZPIPE
     char buf[BUFSIZ];
 
 #endif
@@ -297,17 +302,16 @@ OpenWriteFile(filename, mdata)
 	mdata->stream.file = (stdout);
 	mdata->type = XPMFILE;
     } else {
-#ifdef ZPIPE
-	if ((int) strlen(filename) > 2
-	    && !strcmp(".Z", filename + (strlen(filename) - 2))) {
-	    sprintf(buf, "compress > %s", filename);
+#ifndef NO_ZPIPE
+	int len = strlen(filename);
+	if (len > 2 && !strcmp(".Z", filename + (len - 2))) {
+	    sprintf(buf, "compress > \"%s\"", filename);
 	    if (!(mdata->stream.file = popen(buf, "w")))
 		return (XpmOpenFailed);
 
 	    mdata->type = XPMPIPE;
-	} else if ((int) strlen(filename) > 3
-		   && !strcmp(".gz", filename + (strlen(filename) - 3))) {
-	    sprintf(buf, "gzip -q > %s", filename);
+	} else if (len > 3 && !strcmp(".gz", filename + (len - 3))) {
+	    sprintf(buf, "gzip -q > \"%s\"", filename);
 	    if (!(mdata->stream.file = popen(buf, "w")))
 		return (XpmOpenFailed);
 
@@ -318,7 +322,7 @@ OpenWriteFile(filename, mdata)
 		return (XpmOpenFailed);
 
 	    mdata->type = XPMFILE;
-#ifdef ZPIPE
+#ifndef NO_ZPIPE
 	}
 #endif
     }
@@ -337,7 +341,7 @@ xpmDataClose(mdata)
 	if (mdata->stream.file != (stdout))
 	    fclose(mdata->stream.file);
 	break;
-#ifdef ZPIPE
+#ifndef NO_ZPIPE
     case XPMPIPE:
 	pclose(mdata->stream.file);
 	break;

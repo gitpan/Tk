@@ -1,10 +1,13 @@
+# Copyright (c) 1995-1997 Nick Ing-Simmons. All rights reserved.
+# This program is free software; you can redistribute it and/or
+# modify it under the same terms as Perl itself.
 # An example of a geometry manager "widget" in perl
 package Tk::Tiler;
 require Tk;
 require Tk::Frame;
 @ISA = qw(Tk::Frame);
 
-Tk::Widget->Construct('Tiler');
+Construct Tk::Widget 'Tiler';
 sub Tk::Widget::ScrlTiler { shift->Scrolled('Tiler' => @_) }
 
 use Tk::Pretty;
@@ -109,10 +112,7 @@ sub Layout
    $s->MapWindow;
   }
  $m->{Prev} = $m->{Start};
- if (defined ($cb = $m->cget('-yscrollcommand')))
-  {
-   $cb->Call($m->{Start}/$need,$row/$need);
-  }
+ $m->Callback(-yscrollcommand => $m->{Start}/$need,$row/$need);
 }
 
 sub QueueLayout

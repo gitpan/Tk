@@ -15,18 +15,32 @@
 
 package Tk::Menubutton; 
 require Tk;
-require DynaLoader;
 use AutoLoader;
 
-@ISA = qw(DynaLoader Tk::Widget);
+@ISA = qw(Tk::Widget);
 
-Tk::Widget->Construct('Menubutton');
+Construct Tk::Widget 'Menubutton';
 
 import Tk qw(&Ev);
 
-bootstrap Tk::Menubutton;
+bootstrap Tk::Menubutton $Tk::VERSION;
 
 sub Tk_cmd { \&Tk::menubutton }
+
+sub InitObject
+{
+ my ($mb,$args) = @_;
+ my $menuitems = delete $args->{-menuitems};
+ my $tearoff   = delete $args->{-tearoff};
+ $mb->SUPER::InitObject($args);
+ if ((defined($menuitems) || defined($tearoff)) && %$args)
+  {
+   $mb->configure(%$args);
+   %$args = ();
+  }
+ $mb->menu(-tearoff => $tearoff) if (defined $tearoff);
+ $mb->AddItems(@$menuitems) if (defined $menuitems)
+}
 
 1;
 
@@ -273,6 +287,7 @@ sub menu
  my $menu = $w->cget('-menu');
  if (!defined $menu)
   {
+   require Tk::Menu;
    $w->ColorOptions(\%args); 
    $menu = $w->Menu(%args);
    $w->configure('-menu'=>$menu);
@@ -284,11 +299,16 @@ sub menu
  return $menu;
 }
 
-sub separator   { shift->menu->separator(@_);   }
-sub command     { shift->menu->command(@_);     }
-sub cascade     { shift->menu->cascade(@_);     }
-sub checkbutton { shift->menu->checkbutton(@_); }
-sub radiobutton { shift->menu->radiobutton(@_); }
+sub separator   { require Tk::Menu::Item; shift->menu->Separator(@_);   }
+sub command     { require Tk::Menu::Item; shift->menu->Command(@_);     }
+sub cascade     { require Tk::Menu::Item; shift->menu->Cascade(@_);     }
+sub checkbutton { require Tk::Menu::Item; shift->menu->Checkbutton(@_); }
+sub radiobutton { require Tk::Menu::Item; shift->menu->Radiobutton(@_); }
+
+sub AddItems
+{
+ shift->menu->AddItems(@_);
+}
 
 sub entryconfigure
 {

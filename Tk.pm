@@ -1,76 +1,85 @@
 #
 # Copyright (c) 1992-1994 The Regents of the University of California.
 # Copyright (c) 1994 Sun Microsystems, Inc.
-# Copyright (c) 1995 Nick Ing-Simmons. All rights reserved.
+# Copyright (c) 1995-1997 Nick Ing-Simmons. All rights reserved.
 # This program is free software; you can redistribute it and/or
 # modify it under the same terms as Perl itself, subject 
 # to additional disclaimer in Tk/license.terms due to partial
 # derivation from Tk4.0 sources.
 #
 package Tk;
-use     AutoLoader;
+require 5.003_97;
+use     AutoLoader qw(AUTOLOAD);
+use     DynaLoader;
 require Exporter;
-require DynaLoader;
+@Tk::ISA = qw(Exporter DynaLoader);
 
-@ISA       = qw(Exporter DynaLoader);
-use Carp;
 
 @EXPORT    = qw(Exists Ev after exit MainLoop DoOneEvent tkinit);
-@EXPORT_OK = qw(Exists Ev after exit MainLoop DoOneEvent tkinit NoOp lsearch);
+@EXPORT_OK = qw(NoOp *widget *event lsearch catch 
+                DONT_WAIT WINDOW_EVENTS  FILE_EVENTS TIMER_EVENTS 
+                IDLE_EVENTS ALL_EVENTS 
+                NORMAL_BG ACTIVE_BG SELECT_BG 
+                SELECT_FG TROUGH INDICATOR DISABLED BLACK WHITE);
+%EXPORT_TAGS = (eventtypes => [qw(DONT_WAIT WINDOW_EVENTS  FILE_EVENTS 
+                                  TIMER_EVENTS IDLE_EVENTS ALL_EVENTS)], 
+                variables  => [qw(*widget *event)],
+                colors     => [qw(NORMAL_BG ACTIVE_BG SELECT_BG SELECT_FG 
+                                  TROUGH INDICATOR DISABLED BLACK WHITE)],
+               );
+
+use strict;
+use Symbol ();
+
+use Carp;
 
 # $tk_version and $tk_patchLevel are reset by pTk when a mainwindow
-# is created, $Version is set by bootstrap
-$Tk::version     = "4.0";
-$Tk::patchLevel  = "4.0p1";
-$Tk::Version     = "beta";
+# is created, $VERSION is checked by bootstrap
+$Tk::version     = "4.2";
+$Tk::patchLevel  = "4.2";
+$Tk::VERSION     = '402.000';
 $Tk::strictMotif = 0;
                                    
-$Tk::library = __FILE__;
-$Tk::library =~ s/\.pm$//;
+{($Tk::library) = __FILE__ =~ /^(.*)\.pm$/;}
 $Tk::library = Tk->findINC('.') unless (-d $Tk::library);
 
-bootstrap Tk;
+$Tk::widget  = undef;
+$Tk::event   = undef;
 
 # Supress used once warnings on function table pointers 
 # How can we do this in the C code?
-$Tk::TkVtab      = $Tk::TkVtab;
-$Tk::TkintVtab   = $Tk::TkintVtab;
-$Tk::LangVtab    = $Tk::LangVtab;
-$Tk::TkglueVtab  = $Tk::TkglueVtab;
-$Tk::XlibVtab    = $Tk::XlibVtab;
-$Tk::Version     = $Tk::Version;
-$Tk::version     = $Tk::version;
-$Tk::patchLevel  = $Tk::patchLevel;
-$Tk::strictMotif = $Tk::strictMotif;
+use vars qw($TkVtab $TkintVtab $LangVtab $TkglueVtab $XlibVtab $TkoptionVtab);  
 
-BEGIN 
+bootstrap Tk $Tk::VERSION;
+
 {
- my %sub_methods = ( 'option' =>  [qw(add get clear readfile)],
-                     'clipboard' => [qw(clear append)]
-                    );
- my $fn;
- foreach $fn (keys %sub_methods)
-  {my $sub;
-   foreach $sub (@{$sub_methods{$fn}})
-    {
-     my ($suffix) = $sub =~ /(\w+)$/;
-     *{"$fn\u$suffix"} = sub { shift->$fn($sub,@_) };
-    }
-  }
+ no strict 'refs';
+ *{'exit'} = \&Exit;
 }
+my $boot_time = timeofday();
+
+# This is a workround for Solaris X11 locale handling 
+Preload(DynaLoader::dl_findfile('-L/usr/openwin/lib','-lX11')) if (&NeedPreload && -d '/usr/openwin/lib');
+
+use Tk::Submethods ('option'    =>  [qw(add get clear readfile)],
+                    'clipboard' =>  [qw(clear append)]
+                   );
 
 sub BackTrace
 {
- my ($w,$msg) = @_;
- my ($pack,$file,$line,$sub);
- my $i = 1;
- while (($pack,$file,$line,$sub) = caller($i))
-  {
-   last if $sub eq '(eval)';
-   $w->AddErrorInfo("$sub called from $file line $line");
-   $i++;
-  }
- croak($msg);
+ my $w = shift;
+ return unless (@_ || $@);
+ my $mess = (@_) ? shift : "$@";
+ my $i = 0;  
+ my ($pack,$file,$line,$sub) = caller($i++);
+ while (1)   
+  {          
+   my $loc = "at $file line $line";
+   ($pack,$file,$line,$sub) = caller($i++);
+   last if (!defined($sub) || $sub eq '(eval)');
+   $w->AddErrorInfo("$sub $loc");
+  }          
+ die "$mess\n";
 }
 
 sub NoOp  { }
@@ -91,56 +100,21 @@ sub Ev
  return bless $obj,"Tk::Ev";
 }
 
-
-sub lsearch
-{my $ar = shift;
- my $x  = shift;
- my $i;
- for ($i = 0; $i < scalar @$ar; $i++)
-  {
-   return $i if ($$ar[$i] eq $x);
-  }
- return -1;
-}
-
 require Tk::Widget;
 require Tk::Image;
 require Tk::MainWindow;
 
-sub break
-{
- die "_TK_BREAK_\n";
+sub Exists
+{my $w = shift;
+ return defined($w) && ref($w) && $w->IsWidget && $w->exists;
 }
 
-sub idletasks
+sub Time_So_Far
 {
- shift->update('idletasks');
-}
+ return timeofday() - $boot_time;
+} 
 
-sub updateWidgets
-{
- my ($w) = @_;
- while ($w->DoOneEvent(0x13))   # No wait, X events and idle events
-  {
-  }
- $w;
-}
-
-sub ImageNames
-{
- image('names');
-}
-
-sub ImageTypes
-{
- image('types');
-}
-
-sub interps
-{
- my $w = shift;
- return $w->winfo('interps','-displayof');
-}
+# Selection* are not autoloaded as names are too long.
 
 sub SelectionOwn
 {my $widget = shift;
@@ -157,40 +131,85 @@ sub SelectionClear
  selection('clear',"-displayof",@_);
 }
 
+sub SelectionExists
+{
+ selection('exists',"-displayof",@_);
+}
+
 sub SelectionHandle
 {my $widget = shift;
  my $command = pop;
  selection('handle',@_,$widget,$command);
 }
 
-sub findINC
+#
+# This is a $SIG{__DIE__} handler which does not change the $@
+# string in the way 'croak' does, but rather add to Tk's ErrorInfo.
+# It stops at 1st enclosing eval on assumption that the eval
+# is part of Tk call process and will add its own context to ErrorInfo
+# and then pass on the error.
+# 
+sub __DIE__
 {
- my $file = join('/',@_);
- my $dir;
- $file  =~ s,::,/,g;
- foreach $dir (@INC)
+ my $mess = shift;
+ my $w = $Tk::widget;
+ if (defined $w)
   {
-   my $path;
-   return $path if (-e ($path = "$dir/$file"));
+   my $i = 0;  
+   my ($pack,$file,$line,$sub) = caller($i++);
+   while (1)   
+    {          
+     my $loc = "at $file line $line";
+     ($pack,$file,$line,$sub) = caller($i++);
+     last if (!defined($sub) || $sub eq '(eval)');
+     $w->AddErrorInfo("$sub $loc");
+    }          
   }
- return undef;
 }
 
-sub SubMethods
+sub fileevent
 {
- my $package = caller(0);
- while (@_)
+ require Tk::IO;
+ my ($obj,$file,$mode,$cb) = @_;
+ croak "Unknown mode '$mode'" unless $mode =~ /^(readable|writeable)$/;
+ unless (ref $file)
   {
-   my $fn = shift;
-   my $sm = shift;
-   my $sub;
-   foreach $sub (@{$sm})
+   require IO::Handle;
+   no strict 'refs';
+   $file = Symbol::qualify($file,(caller)[0]);
+   $file = bless \*{$file},'IO::Handle';
+  }
+ if ($cb)
+  {
+   # Adding the handler
+   $cb = Tk::Callback->new($cb);
+   if ($mode eq 'readable')
     {
-     my ($suffix) = $sub =~ /(\w+)$/;
-     my $name = $package . '::' ."$fn\u$suffix";
-     *{"$name"} = sub { shift->$fn($sub,@_) };
+     Tk::IO::CreateReadHandler($file,$cb);
+    }
+   else
+    {
+     Tk::IO::CreateWriteHandler($file,$cb);
     }
   }
+ else
+  {
+   if ($mode eq 'readable')
+    {
+     Tk::IO::DeleteReadHandler($file);
+    }
+   else
+    {
+     Tk::IO::DeleteWriteHandler($file);
+    }
+  }
+}
+
+sub SplitString
+{
+ local $_ = shift;
+ carp "SplitString '$_'";
+ return split(/\s+/,$_);
 }
 
 
@@ -201,14 +220,26 @@ __END__
 # before a MainWindow->new()
 sub exit { CORE::exit(@_);}
 
-sub tkinit
-{
- return MainWindow->new(@_);
-}
-
 sub Exists
 {my $w = shift;
  return defined($w) && ref($w) && $w->IsWidget && $w->exists;
+}
+
+sub Error
+{my $w = shift;
+ my $error = shift;
+ if (Exists($w))
+  {
+   my $grab = $w->grab('current');  
+   $grab->Unbusy if (defined $grab);
+  }
+ chomp($error);
+ warn "Tk::Error: $error\n " . join("\n ",@_);
+}
+
+sub tkinit
+{
+ return MainWindow->new(@_);
 }
 
 sub CancelRepeat
@@ -352,7 +383,7 @@ sub FocusOK
 {
  my $w = shift;
  my $value;
- eval { $value = $w->cget('-takefocus') };
+ catch { $value = $w->cget('-takefocus') };
  if (!$@ && defined($value))
   {
    return 0 if ($value eq '0');
@@ -364,7 +395,7 @@ sub FocusOK
   {
    return 0;
   }
- eval { $value = $w->cget('-state') } ;
+ catch { $value = $w->cget('-state') } ;
  if (!$@ && defined($value) && $value eq "disabled")
   {
    return 0;
@@ -447,20 +478,76 @@ sub Clipboard
  croak "Use clipboard\u$cmd()";
 }
 
-sub BackgroundError
-{my $w = shift;
- my $error = shift;
- my $grab = $w->grab('current');
- $grab->Unbusy if (defined $grab);
- chomp($error);
- carp "Background Error: $error\n " . join("\n ",@_);
-}
-
 sub Receive
 {
  my $w = shift;
- warn "receive(" . join(',',@_) .")";
+ warn "Receive(" . join(',',@_) .")";
  die "Tk rejects send(" . join(',',@_) .")\n";
 }
 
+sub break
+{
+ die "_TK_BREAK_\n";
+}
+
+sub idletasks
+{
+ shift->update('idletasks');
+}
+
+sub updateWidgets
+{
+ my ($w) = @_;
+ while ($w->DoOneEvent(DONT_WAIT|IDLE_EVENTS|WINDOW_EVENTS))
+  {
+  }
+ $w;
+}
+
+sub ImageNames
+{
+ image('names');
+}
+
+sub ImageTypes
+{
+ image('types');
+}
+
+sub interps
+{
+ my $w = shift;
+ return $w->winfo('interps','-displayof');
+}
+
+sub findINC
+{
+ my $file = join('/',@_);
+ my $dir;
+ $file  =~ s,::,/,g;
+ foreach $dir (@INC)
+  {
+   my $path;
+   return $path if (-e ($path = "$dir/$file"));
+  }
+ return undef;
+}
+
+sub lsearch
+{my $ar = shift;
+ my $x  = shift;
+ my $i;
+ for ($i = 0; $i < scalar @$ar; $i++)
+  {
+   return $i if ($$ar[$i] eq $x);
+  }
+ return -1;
+}
+
+# a wrapper on eval which turns off user $SIG{__DIE__}
+sub catch (&)
+{
+ my $sub = shift;
+ eval {local $SIG{'__DIE__'}; &$sub };
+}
 

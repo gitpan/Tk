@@ -2,13 +2,13 @@
 #include <perl.h>
 #include <XSUB.h>
 
-#include "../tkGlue.def"
+#include "tkGlue.def"
 
-#include "tkPort.h"
-#include "tkInt.h"
-#include "tkVMacro.h"
-#include "../tkGlue.h"
-#include "../tkGlue.m"
+#include "pTk/tkPort.h"
+#include "pTk/tkInt.h"
+#include "pTk/tkVMacro.h"
+#include "tkGlue.h"
+#include "tkGlue.m"
 
 DECLARE_VTABLES;
 
@@ -61,8 +61,83 @@ SV *value;
  return valuemask;
 }
 
+static void
+tmpLine(tkwin,x1,y1,x2,y2,flags)
+Tk_Window tkwin;
+int x1,y1,x2,y2;
+int flags;
+{
+ GC gc = None;
+ XGCValues values;
+ Window root = Tk_WindowId(tkwin);
+ unsigned long valuemask = GCForeground | GCBackground 
+                           | GCSubwindowMode | GCFunction 
+#if 0
+                           | GCLineStyle
+#endif
+                           ;
+ values.line_style     = LineDoubleDash;
+
+ if (flags & 4)
+  {
+   Window child;
+   root = XRootWindow(Tk_Display(tkwin), Tk_ScreenNumber(tkwin));
+   XTranslateCoordinates(Tk_Display(tkwin),Tk_WindowId(tkwin),root,
+                         x1, y1, &x1, &y1, &child);
+   XTranslateCoordinates(Tk_Display(tkwin),Tk_WindowId(tkwin),root,
+                         x2, y2, &x2, &y2, &child);
+   values.subwindow_mode = IncludeInferiors;
+  }
+ else
+  {
+   values.subwindow_mode = ClipByChildren;
+  }
+
+ if (flags & 2)
+  {
+   values.background     = 0x0a;
+   values.foreground     = 0x05;
+   values.function       = GXxor;
+  }
+ else
+  {
+   values.function       = GXcopy;
+   if (flags & 1)
+    {
+     values.foreground     = BlackPixelOfScreen(Tk_Screen(tkwin));
+     values.background     = WhitePixelOfScreen(Tk_Screen(tkwin));
+    }
+   else
+    {
+     values.background     = BlackPixelOfScreen(Tk_Screen(tkwin));
+     values.foreground     = WhitePixelOfScreen(Tk_Screen(tkwin));
+    }
+  }
+ gc = Tk_GetGC(tkwin, valuemask, &values);
+ if (gc != None)
+  {
+   XDrawLine(Tk_Display(tkwin), root, gc, x1, y1, x2, y2);
+   Tk_FreeGC(Tk_Display(tkwin),gc);
+  }
+ else
+  croak("Cannot get graphic context");
+}
+
+MODULE = Tk::Xlib	PACKAGE = Tk::Widget
+
+void
+tmpLine(win,x1,y1,x2,y2,onroot = 0)
+Tk_Window	win
+int	x1 
+int	y1 
+int	x2 
+int	y2 
+int	onroot 
+
 
 MODULE = Tk::Xlib	PACKAGE = ScreenPtr
+
+PROTOTYPES: DISABLE
 
 int
 WidthOfScreen(s)
@@ -94,10 +169,45 @@ Screen *	s
 
 MODULE = Tk::Xlib	PACKAGE = DisplayPtr
 
+int
+ConnectionNumber(dpy)
+Display *	dpy
+
 Font
 XLoadFont(dpy,name)
 Display *	dpy
 char *		name
+
+void
+XListFonts(dpy,pattern,max)
+Display *	dpy
+char *		pattern
+int		max 
+PPCODE:
+ {
+  int  count = 0;
+#ifndef __WIN32__
+  char **list = XListFonts(dpy, pattern, max, &count);
+  int i;
+  EXTEND(sp, count);
+  for (i=0; i < count; i++) 
+   {
+    PUSHs(sv_2mortal(newSVpv(list[i],0)));
+   }
+  XFreeFontNames(list);
+#endif
+  XSRETURN(count);
+ }
+
+void
+XDrawLine(dpy,win,gc,x1,y1,x2,y2)
+Display *	dpy
+Window		win
+GC		gc
+int		x1
+int		y1
+int		x2
+int		y2
 
 void
 XDrawRectangle(dpy,win,gc,x,y,width,height)
@@ -151,6 +261,50 @@ GC
 DefaultGC(dpy,scr)
 Display *	dpy
 int		scr
+
+void
+XQueryTree(dpy,w,root = NULL,parent = NULL)
+Display *	dpy
+Window		w
+SV *		root
+SV *		parent
+PPCODE:
+ {Window *children = NULL;
+  unsigned int count = 0;
+  Window pw = None;
+  Window rw = None;
+  if (XQueryTree(dpy, w, &rw, &pw, &children, &count))
+   {
+    int i;
+    for (i=0; i < count; i++)
+     {
+      SV *sv = sv_newmortal();
+      sv_setref_iv(sv, "Window", (IV) (children[i]));
+      XPUSHs(sv);
+     }
+    XFree((char *) children);
+   }
+  else
+   {
+    count = 0;
+    XSRETURN(0);
+   }
+  if (parent)
+   {
+    if (pw == None)
+     sv_setsv(parent,&sv_undef);
+    else
+     sv_setref_iv(parent, "Window", (IV) (pw));
+   }
+  if (root)
+   {
+    if (rw == None)
+     sv_setsv(root,&sv_undef);
+    else
+     sv_setref_iv(root, "Window", (IV) (rw));
+   }
+  XSRETURN(count);
+ }
 
 MODULE = Tk::Xlib	PACKAGE = GC	PREFIX = XSet
 

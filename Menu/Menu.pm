@@ -14,15 +14,16 @@
 
 package Tk::Menu; 
 require Tk;
-require DynaLoader;
+require Tk::Widget;
 require Tk::Wm;
+require Tk::Derived;
 use AutoLoader;
 
-@ISA = qw(DynaLoader Tk::Wm Tk::Widget);
+@ISA = qw(Tk::Wm Tk::Derived Tk::Widget);
 
-Tk::Widget->Construct('Menu');
+Construct Tk::Widget 'Menu';
 
-bootstrap Tk::Menu;
+bootstrap Tk::Menu $Tk::VERSION;
 
 sub Tk_cmd { \&Tk::menu }
 
@@ -44,6 +45,52 @@ sub CreateArgs
  return @result;
 }
 
+sub InitObject
+{
+ my ($menu,$args) = @_;
+ my $menuitems = delete $args->{-menuitems};
+ $menu->SUPER::InitObject($args);
+ if (defined $menuitems)
+  {
+   # If any other args do configure now
+   if (%$args)
+    {
+     $menu->configure(%$args);
+     %$args = ();
+    }
+   $menu->AddItems(@$menuitems) 
+  }
+}
+
+sub AddItems
+{
+ require Tk::Menu::Item;
+ my $menu = shift;
+ ITEM:
+ while (@_)
+  {
+   my $item = shift;
+   if (!ref($item))
+    { 
+     $menu->separator;  # A separator
+    }  
+   else
+    {
+     my ($kind,$name,%minfo) = ( @$item );
+     my $invoke = delete $minfo{'-invoke'};
+     if (defined $name)
+      {
+       $minfo{-label} = $name unless defined($minfo{-label});
+       $menu->$kind(%minfo);
+      }
+     else
+      {
+       $menu->BackTrace("Don't recognize " . join(' ',@$item));
+      }
+    }  # A non-separator
+  }
+}
+        
 1;
 
 __END__
@@ -147,13 +194,12 @@ sub Unpost
  # the menu is unmapped and under some window managers (e.g. olvwm)
  # we'll lose the focus completely).
 
- eval { $Tk::focus->focus() } if (defined $Tk::focus);
+ eval {local $SIG{__DIE__}; $Tk::focus->focus() } if (defined $Tk::focus);
  undef $Tk::focus;
 
  # Unpost menu(s) and restore some stuff that's dependent on
  # what was posted.
- eval
-  {
+ eval {local $SIG{__DIE__}; 
    if (defined $mb)
      {
       $menu = $mb->cget("-menu");
@@ -249,7 +295,7 @@ sub ButtonDown
  else
   {
    while ($menu->overrideredirect
-          &&  $menu->parent->IsMenu
+          && $menu->parent->IsMenu
           && $menu->parent->ismapped 
          )
     {
@@ -442,7 +488,7 @@ sub NextEntry
     {
      $i += -$length
     }
-   $state = eval { $menu->entrycget($i,"-state") };
+   $state = eval {local $SIG{__DIE__};  $menu->entrycget($i,"-state") };
    last if (defined($state) && $state ne "disabled");
    return if ($i == $active);
    $i += $count
@@ -472,7 +518,7 @@ sub TraverseWithinMenu
  return if ($last eq "none");
  for ($i = 0;$i <= $last;$i += 1)
   {
-   my $label = eval { $w->entrycget($i,"-label") };
+   my $label = eval {local $SIG{__DIE__};  $w->entrycget($i,"-label") };
    next unless defined($label);
    my $ul = $w->entrycget($i,"-underline");
    if (defined $ul && $ul >= 0)
@@ -517,7 +563,7 @@ sub FirstEntry
  return if ($last eq 'none');
  for ($i = 0;$i <= $last;$i += 1)
   {
-   my $state = eval { $menu->entrycget($i,"-state") };
+   my $state = eval {local $SIG{__DIE__};  $menu->entrycget($i,"-state") };
    if (defined $state && $state ne "disabled" && !$menu->typeIS($i,"tearoff"))
     {
      $menu->activate($i);
@@ -543,14 +589,14 @@ sub FindName
  my $i = undef;
  if ($s !~ /^active$|^last$|^none$|^[0-9]|^@/)
   {
-   $i = eval { $menu->index($s) };
+   $i = eval {local $SIG{__DIE__};  $menu->index($s) };
    return $i;
   }
  my $last = $menu->index("last");
  return if ($last eq 'none');
  for ($i = 0;$i <= $last;$i += 1)
   {
-   my $lable = eval { $menu->entrycget($i,"-label") };
+   my $label = eval {local $SIG{__DIE__};  $menu->entrycget($i,"-label") };
    return $i if (defined $label && $label eq $s);
   }
  return undef;
@@ -601,7 +647,7 @@ sub PostOverPoint
 # entry - Index of a menu entry to center over (x,y).
 # If omitted or specified as {}, then menu's
 # upper-left corner goes at (x,y).
-sub Popup
+sub Post
 {
  my $menu = shift;
  return unless (defined $menu);
@@ -652,7 +698,8 @@ sub TearOffMenu
    $parent = $parent->parent;
   }
  my $menu = $w->MenuDup($parent);
- $menu->overrideredirect(0);
+ # $menu->overrideredirect(0);
+ $menu->configure(-transient => 0);
  $menu->transient($parent);
  # Pick a title for the new menu by looking at the parent of the
  # original: if the parent is a menu, then use the text of the active
@@ -672,6 +719,7 @@ sub TearOffMenu
  # after keyboard invocation of a sub-menu (it will stay on the
  # submenu).
  $menu->bind("<Enter>",EnterFocus);
+ $menu->Callback('-tearoffcommand');
 }
 
 # tkMenuDup --
@@ -729,10 +777,10 @@ sub MenuDup
 
 # Some convenience methods 
 
-sub separator   { shift->add('separator',@_);   }
-sub command     { shift->add('command',@_);     }
-sub cascade     { shift->add('cascade',@_);     }
-sub checkbutton { shift->add('checkbutton',@_); }
-sub radiobutton { shift->add('radiobutton',@_); }
+sub separator   { require Tk::Menu::Item; shift->Separator(@_);   }
+sub command     { require Tk::Menu::Item; shift->Command(@_);     }
+sub cascade     { require Tk::Menu::Item; shift->Cascade(@_);     }
+sub checkbutton { require Tk::Menu::Item; shift->Checkbutton(@_); }
+sub radiobutton { require Tk::Menu::Item; shift->Radiobutton(@_); }
 
 1; 

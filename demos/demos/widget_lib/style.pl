@@ -15,7 +15,7 @@ sub style {
     $w->iconname('style');
 
     my $w_buttons = $w->Frame;
-    $w_buttons->pack(qw(-side bottom -expand y -fill x -pady 2m));
+    $w_buttons->pack(qw(-side bottom -fill x -pady 2m));
     my $w_dismiss = $w_buttons->Button(
         -text    => 'Dismiss',
         -command => [$w => 'destroy'],
@@ -23,7 +23,7 @@ sub style {
     $w_dismiss->pack(qw(-side left -expand 1));
     my $w_see = $w_buttons->Button(
         -text    => 'See Code',
-        -command => [\&seeCode, $demo],
+        -command => [\&see_code, $demo],
     );
     $w_see->pack(qw(-side left -expand 1));
 
@@ -37,11 +37,11 @@ sub style {
     # Set up display styles.
 
     $w_t->tag('configure', 'bold',
-	      -font => '-*-Courier-Bold-O-Normal-*-120-*-*-*-*-*-*');
+	      -font => '-*-Courier-Bold-O-Normal--*-120-*-*-*-*-*-*');
     $w_t->tag('configure', 'big',
-	      -font => '-*-Courier-Bold-R-Normal-*-140-*-*-*-*-*-*');
+	      -font => '-*-Courier-Bold-R-Normal--*-140-*-*-*-*-*-*');
     $w_t->tag('configure', 'verybig',
-	      -font => '-*-Helvetica-Bold-R-Normal-*-240-*-*-*-*-*-*');
+	      -font => '-*-Helvetica-Bold-R-Normal--*-240-*-*-*-*-*-*');
     if ($w->depth > 1) {
 	$w_t->tag('configure', 'color1', -background => '#a0b7ce');
 	$w_t->tag('configure', 'color2', -foreground => 'red');

@@ -1,1 +1,1 @@
-tkSquare.o: tkSquare.c tkPort.h tk.h Lang.h
+tkSquare.o: tkSquare.c tkPort.h Lang.h tkConfig.h tk.h tkUnixPort.h

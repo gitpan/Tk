@@ -12,23 +12,17 @@
 
 package Tk::Scale; 
 require Tk;
-require DynaLoader;
 use AutoLoader;
-@ISA = qw(DynaLoader Tk::Widget);
+@ISA = qw(Tk::Widget);
 
-Tk::Widget->Construct('Scale');
+Construct Tk::Widget 'Scale';
 
-bootstrap Tk::Scale;
+bootstrap Tk::Scale $Tk::VERSION;
 
 sub Tk_cmd { \&Tk::scale }
 
 
 import Tk qw(Ev);
-
-
-1;
-
-__END__
 
 #
 # Bind --
@@ -44,80 +38,44 @@ __END__
 sub ClassInit
 {
  my ($class,$mw) = @_;
- $mw->bind($class,"<Enter>",
-	     sub
-	     {
-	      my $w = shift;
-	      my $Ev = $w->XEvent;
-	      if ($Tk::strictMotif)
-	       {
-		$Tk::activeBg = $w->cget("-activebackground");
-		$w->configure("-activebackground",$w->cget("-background"))
-	       }
-	      Activate($w,$Ev->x,$Ev->y)
-	     }
-	    )
- ;
+
+ $mw->bind($class,"<Enter>",['Enter',Ev('x'),Ev('y')]);
  $mw->bind($class,"<Motion>",['Activate',Ev('x'),Ev('y')]);
- $mw->bind($class,"<Leave>",
-	     sub
-	     {
-	      my $w = shift;
-	      my $Ev = $w->XEvent;
-	      if ($Tk::strictMotif)
-	       {
-		$w->configure("-activebackground",$Tk::activeBg)
-	       }
-	      if ($w->cget("-state") eq "active")
-	       {
-		$w->configure("-state","normal")
-	       }
-	     }
-	    )
- ;
+ $mw->bind($class,"<Leave>",'Leave');
+
  $mw->bind($class,"<1>",['ButtonDown',Ev('x'),Ev('y')]);
  $mw->bind($class,"<B1-Motion>",['Drag',Ev('x'),Ev('y')]);
  $mw->bind($class,"<B1-Leave>",'NoOp');
  $mw->bind($class,"<B1-Enter>",'NoOp');
- $mw->bind($class,"<ButtonRelease-1>",
-	     sub
-	     {
-	      my $w = shift;
-	      my $Ev = $w->XEvent;
-	      $w->CancelRepeat();
-	      EndDrag($w);
-	      Activate($w,$Ev->x,$Ev->y)
-	     }
-	    )
- ;
+ $mw->bind($class,"<ButtonRelease-1>",['ButtonUp',Ev('x'),Ev('y')]);
+
  $mw->bind($class,"<2>",['ButtonDown',Ev('x'),Ev('y')]);
  $mw->bind($class,"<B2-Motion>",['Drag',Ev('x'),Ev('y')]);
  $mw->bind($class,"<B2-Leave>",'NoOp');
  $mw->bind($class,"<B2-Enter>",'NoOp');
- $mw->bind($class,"<ButtonRelease-2>",
-	     sub
-	     {
-	      my $w = shift;
-	      my $Ev = $w->XEvent;
-	      $w->CancelRepeat();
-	      EndDrag($w);
-	      Activate($w,$Ev->x,$Ev->y)
-	     }
-	    )
- ;
+ $mw->bind($class,"<ButtonRelease-2>",['ButtonUp',Ev('x'),Ev('y')]);
+
  $mw->bind($class,"<Control-1>",['ControlPress',Ev('x'),Ev('y')]);
+
  $mw->bind($class,"<Up>",['Increment',"up","little","noRepeat"]);
  $mw->bind($class,"<Down>",['Increment',"down","little","noRepeat"]);
  $mw->bind($class,"<Left>",['Increment',"up","little","noRepeat"]);
  $mw->bind($class,"<Right>",['Increment',"down","little","noRepeat"]);
+
  $mw->bind($class,"<Control-Up>",['Increment',"up","big","noRepeat"]);
  $mw->bind($class,"<Control-Down>",['Increment',"down","big","noRepeat"]);
  $mw->bind($class,"<Control-Left>",['Increment',"up","big","noRepeat"]);
  $mw->bind($class,"<Control-Right>",['Increment',"down","big","noRepeat"]);
+
  $mw->bind($class,"<Home>",["set",Ev("cget","-from")]);
  $mw->bind($class,"<End>",["set",Ev("cget","-to")]);
  return $class;
 }
+
+1;
+
+__END__
+
 # Activate --
 # This procedure is invoked to check a given x-y position in the
 # scale and activate the slider if the x-y position falls within
@@ -133,15 +91,43 @@ sub Activate
  my $y = shift;
  return if ($w->cget("-state") eq "disabled");
  my $ident = $w->identify($x,$y);
- if (defined($ident) && $ident eq "slider")
+ if (defined($ident) && $ident eq 'slider')
   {
-   $w->configure("-state","active")
+   $w->configure(-state => "active")
   }
  else
   {
-   $w->configure("-state","normal")
+   $w->configure(-state => "normal")
   }
 }
+
+sub Leave
+{
+ my ($w) = @_;
+ $w->configure("-activebackground",$w->{'activeBg'}) if ($Tk::strictMotif);
+ $w->configure("-state","normal")  if ($w->cget("-state") eq "active");
+}
+
+sub Enter
+{
+ my ($w,$x,$y) = @_;
+ if ($Tk::strictMotif)
+  {
+   $w->{'activeBg'} = $w->cget("-activebackground");
+   $w->configure("-activebackground",$w->cget("-background"));
+  }
+ $w->Activate($x,$y);
+}
+
+sub ButtonUp
+{
+ my ($w,$x,$y) = @_;
+ $w->CancelRepeat();
+ $w->EndDrag();
+ $w->Activate($x,$y)
+}
+
+
 # ButtonDown --
 # This procedure is invoked when a button is pressed in a scale. It
 # takes different actions depending on where the button was pressed.
@@ -156,13 +142,14 @@ sub ButtonDown
  my $y = shift;
  $Tk::dragging = 0;
  $el = $w->identify($x,$y);
+ return unless ($el);
  if ($el eq "trough1")
   {
-   Increment($w,"up","little","initial")
+   $w->Increment("up","little","initial")
   }
  elsif ($el eq "trough2")
   {
-   Increment($w,"down","little","initial")
+   $w->Increment("down","little","initial")
   }
  elsif ($el eq "slider")
   {
@@ -268,10 +255,9 @@ sub Increment
 # x, y - Mouse coordinates where the button was pressed.
 sub ControlPress
 {
- my $w = shift;
- my $x = shift;
- my $y = shift;
+ my ($w,$x,$y) = @_;
  my $el = $w->identify($x,$y);
+ return unless ($el);
  if ($el eq "trough1")
   {
    $w->set($w->cget("-from"))
