@@ -17,7 +17,8 @@ BEGIN
    {
     if (/\$Tk::VERSION\s+=\s+'([0-9._]+)'/)
      {
-      $VERSION = $1;
+      $DISTVERSION = $1;
+      $VERSION = eval $DISTVERSION;
       last;
      }
    }
@@ -70,12 +71,15 @@ Tk::MMutil::TkExtMakefile(
     'NAME'     => 'Tk',
     'DIR'      => ['pTk',reverse(sort(keys %$dir))],
     'DISTNAME' => "Tk",
+    'DISTVNAME'=> "Tk-$DISTVERSION",
     'MYEXTLIB' => 'pTk/libpTk$(LIB_EXT)' . ($win_arch =~ /^(open32|pm)$/
 					    ? ' pTk/dllInit$(LIB_EXT)'
 					    : ''),
     'LIBS'    => \@libs,
     'OBJECT'  => '$(O_FILES)',
+    'PREREQ_PM'  => { 'Encode' => 0 },
     'clean'      => { FILES => 'pTk/tkConfig.h Tk/Config.pm' },
+    'NO_META'    => 1,
     @macro
    );
 
@@ -183,6 +187,13 @@ sub MY::test
  # Put sub-dirs back
  $self->{'DIR'} = $dir;
  return $str;
+}
+
+sub MY::test_via_harness
+{
+ my($self, $perl, $tests) = @_;
+ qq{\t$perl "-It" "-MTkTest" "-MExtUtils::Command::MM" }.
+ qq{"-e" "check_display_harness; test_harness(\$(TEST_VERBOSE), '\$(INST_LIB)', '\$(INST_ARCHLIB)')" $tests\n};
 }
 
 sub MY::postamble {

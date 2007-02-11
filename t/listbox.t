@@ -25,62 +25,83 @@ use FindBin;
 use lib "$FindBin::RealBin";
 use TkTest;
 
+use Getopt::Long;
+
+my $v;
+my $visual;
+
 BEGIN {
     $Listbox = "Listbox";
     #$Listbox = "TextList";
+    GetOptions("listboxclass=s" => \$Listbox,
+	       "v" => \$v,
+	       "visual" => \$visual,
+	      )
+	or die "usage: $0 [-listboxclass baseclass] [-v] [-visual]";
+
     eval "use Tk::$Listbox";
 }
 
 BEGIN {
     if (!eval q{
-	use Test;
+	use Test::More;
 	1;
     }) {
-	print "# tests only work with installed Test module:\n";
-	print join("\n", map { "## $_" } split(/\n/, $@)), "\n";
-	print "1..1\n";
-	print "is 1\n";
+	print "1..0 # skip: no Test::More module\n";
 	exit;
     }
 }
 
-BEGIN { plan tests => 437 , todo => [274 .. 276] }
+plan tests => 539;
 
 my $partial_top;
 my $partial_lb;
 
+my $listvar_impl = $Tk::VERSION >= 804;
+
 my $mw = new MainWindow;
 $mw->geometry('+10+10');
 $mw->raise;
-my $fixed = $Xft ? '{Adobe Courier} -12' : 'Courier -12';
-ok(Tk::Exists($mw), 1);
+## Always use the X11 font, even with Xft, otherwise the measurements would
+## be wrong.
+#my $fixed = $Xft ? '{Adobe Courier} -12' : 'Courier -12';
+my $fixed = "-adobe-courier-medium-r-normal--12-120-75-75-m-*-iso8859-1";
+ok(Tk::Exists($mw));
 
 # Create entries in the option database to be sure that geometry options
 # like border width have predictable values.
 $mw->optionAdd("*$Listbox.borderWidth",2);
 $mw->optionAdd("*$Listbox.highlightThickness",2);
-$mw->optionAdd("*$Listbox.font",
-                $Xft ? '{Adobe Helvetica} -12 bold' :'Helvetica -12 bold');
+## Again, prefer the X11 font.
+#$mw->optionAdd("*$Listbox.font",
+#                $Xft ? '{Adobe Helvetica} -12 bold' :'Helvetica -12 bold');
+$mw->optionAdd("*$Listbox.font", 'Helvetica -12 bold');
 
 my $lb = $mw->$Listbox->pack;
-ok(Tk::Exists($lb), 1);
-ok($lb->isa("Tk::$Listbox"), 1);
+ok(Tk::Exists($lb), "Listbox exists");
+isa_ok($lb, "Tk::$Listbox");
 $lb->update;
 
 my $skip_font_test;
-if (!$Xft) { # XXX Is this condition necessary?
-    my %fa = $mw->fontActual($lb->cget(-font));
+{
+    my %fa = ($mw->fontActual($lb->cget(-font)),
+	      $mw->fontMetrics($lb->cget(-font)));
     my %expected = (
-		    "-weight" => "bold",
-		    "-underline" => 0,
-		    "-family" => "helvetica",
-		    "-slant" => "roman",
-		    "-size" => -12,
+		    "-weight"	  => "bold",
+		    "-underline"  => 0,
+		    "-family"	  => "helvetica",
+		    "-slant"	  => "roman",
+		    "-size"	  => -12,
 		    "-overstrike" => 0,
+		    "-ascent"	  => 11,
+		    "-descent"	  => 3,
+		    "-linespace"  => 14,
+		    "-fixed"	  => 0,
 		   );
-    while(my($k,$v) = each %expected) {
-	if ($v ne $fa{$k}) {
-	    $skip_font_test = "font-related tests";
+    while(my($key,$val) = each %expected) {
+	if (lc $val ne lc $fa{$key}) {
+	    diag "Value $key does not match: got $fa{$key}, expected $val\n" if $v;
+	    $skip_font_test = "font-related tests (proportional font not std helvetica)";
 	    last;
 	}
     }
@@ -89,29 +110,38 @@ if (!$Xft) { # XXX Is this condition necessary?
 my $skip_fixed_font_test;
 {
     my $fixed_lb = $mw->$Listbox(-font => $fixed);
-    if (!$Xft) { # XXX Is this condition necessary?
-	my %fa = $mw->fontActual($fixed_lb->cget(-font));
-	my %expected = (
-			"-weight" => "normal",
-			"-underline" => 0,
-			"-family" => "courier",
-			"-slant" => "roman",
-			"-size" => -12,
-			"-overstrike" => 0,
-		       );
-	while(my($k,$v) = each %expected) {
-	    if ($v ne $fa{$k}) {
-		$skip_fixed_font_test = "font-related tests (fixed font)";
-		last;
-	    }
+    my %fa = ($mw->fontActual($fixed_lb->cget(-font)),
+	      $mw->fontMetrics($fixed_lb->cget(-font)));
+    my %expected = (
+		    "-weight"     => "normal",
+		    "-underline"  => 0,
+		    "-family"     => "courier",
+		    "-slant"      => "roman",
+		    "-size"       => -12,
+		    "-overstrike" => 0,
+		    "-ascent"     => 10,
+		    "-descent"    => 3,
+		    "-linespace"  => 13,
+		    "-fixed"      => 1,
+		   );
+    while(my($key,$val) = each %expected) {
+	if (lc $val ne lc $fa{$key}) {
+	    diag "Value $key does not match: got $fa{$key}, expected $val\n" if $v;
+	    $skip_fixed_font_test = "font-related tests (fixed font not std courier)";
+	    last;
 	}
-	$fixed_lb->destroy;
     }
+    $fixed_lb->destroy;
 }
 
 resetGridInfo();
 
 $mw->Photo("testimage", -file => Tk->findINC("Xcamel.gif"));
+
+use constant SKIP_CGET    => 5;
+use constant SKIP_CONF    => 6;
+
+my $testVariable;
 
 foreach my $test
     (
@@ -124,16 +154,12 @@ foreach my $test
       'unknown color name "non-existent"'],
      [qw{-borderwidth 1.3 1 badValue}, q{bad screen distance "badValue"}],
      [qw{-cursor arrow arrow badValue}, q{bad cursor spec "badValue"}],
-# XXX error test skipped...
-     [qw{-exportselection yes 1}, "", #"xyzzy",
-      q{expected boolean value but got "xyzzy"}],
+     [qw{-exportselection yes 1}, ""], # Perl/Tk thinks different about booleans: "xyzzy", q{expected boolean value but got "xyzzy"}],
      ['-fg', '#110022', '#110022', 'bogus', q{unknown color name "bogus"}],
-# XXX should test perl font object
-#     ['-font', 'Helvetica 12', 'Helvetica 12', '', "font \"\" doesn't exist"],
+     ['-font', 'Helvetica 12', 'Helvetica 12', '', "font \"\" doesn't exist", 1, 1],
      ['-foreground', '#110022', '#110022', 'bogus',
       q{unknown color name "bogus"}],
-# XXX q{expected integer but got "20p"}
-     [qw{-height 30 30 20p}, "'20p' isn't numeric"],
+     [qw{-height 30 30 20p}, "'20p' isn't numeric"], # in Tcl/Tk nowadays: expected integer but got "20p"
      ['-highlightbackground', '#112233', '#112233', 'ugly',
       q{unknown color name "ugly"}],
      ['-highlightcolor', '#123456', '#123456', 'bogus',
@@ -143,9 +169,12 @@ foreach my $test
      ['-offset', '1,1', '1,1', 'wrongside',
       'bad offset "wrongside": expected "x,y", n, ne, e, se, s, sw, w, nw, or center'],
      [qw{-relief groove groove 1.5},
-      ($Tk::VERSION < 803
+      ($Listbox eq 'TextList'
        ? q{bad relief type "1.5": must be flat, groove, raised, ridge, solid, or sunken}
-       : q{bad relief "1.5": must be flat, groove, raised, ridge, solid, or sunken})],
+       : ($Tk::VERSION < 803
+	  ? q{bad relief type "1.5": must be flat, groove, raised, ridge, solid, or sunken}
+	  : q{bad relief "1.5": must be flat, groove, raised, ridge, solid, or sunken})
+      )],
      ['-selectbackground', '#110022', '#110022', 'bogus',
       q{unknown color name "bogus"}],
      [qw{-selectborderwidth 1.3 1 badValue},
@@ -153,131 +182,129 @@ foreach my $test
      ['-selectforeground', '#654321', '#654321', 'bogus',
       q{unknown color name "bogus"}],
      [qw{-selectmode string string}, '', ''],
-     [qw{-setgrid false 0}, "", # XXX "lousy",
+     [qw{-setgrid false 0}, "", "lousy",
       q{expected boolean value but got "lousy"}],
      ['-state', 'disabled', 'disabled', 'foo',
-      'bad state "foo": must be disabled, or normal'],
+      ($Listbox eq 'TextList'
+       ? q{bad state value "foo": must be normal or disabled}
+       : 'bad state "foo": must be disabled, or normal'
+      )],
      ['-takefocus', "any string", "any string", '', ''],
      ['-tile', 'testimage', 'testimage', 'non-existant',
       'image "non-existant" doesn\'t exist'],
-     [qw{-width 45 45 3p}, "'3p' isn't numeric"],
-      #XXXq{expected integer but got "3p"}],
-#XXX Callback object      ['-xscrollcommand', 'Some command', 'Some command', '', ''],
-#XXX     ['-yscrollcommand', 'Another command', 'Another command', '', ''],
-#XXX not yet in 800.022     [qw{-listvar}, \$testVariable,  testVariable {}}, q{}],
+     [qw{-width 45 45 3p}, "'3p' isn't numeric"], # In Tcl/Tk nowadays q{expected integer but got "3p"}
+     [qw(-xscrollcommand), q{Some command}, q{Some command}, '', undef, 1, 1],
+     [qw(-yscrollcommand), q{Another command}, q{Another command}, '', undef, 1, 1],
+     [qw{-listvar}, \$testVariable,  \$testVariable, '', undef],
     ) {
 	my $name = $test->[0];
 
-	if ($Listbox eq 'TextList' &&
-	    $name =~ /^-(activestyle|bg|fg|foreground|height|selectborderwidth)$/) {
-	    my $skip = "$name test not supported for $Listbox";
-	    skip($skip,1);
-	    if ($test->[3] ne "") {
-		skip($skip,1);
-	    }
-	    next;
-	}
+    SKIP: {
+	    skip("$name test not supported for $Listbox", 4)
+		if ($Listbox eq 'TextList' &&
+		    $name =~ /^-(activestyle|bg|fg|foreground|height|selectborderwidth|listvar)$/);
 
-	if ($Listbox eq 'Listbox' && $Tk::VERSION < 804 &&
-	    $name =~ /^-(activestyle)$/) {
-	    my $skip = "$name not implemented on $Tk::VERSION";
-	    skip($skip,1);
-	    if ($test->[3] ne "") {
-		skip($skip,1);
-	    }
-	    next;
-	}
+	    skip("$name not implemented on $Tk::VERSION", 4)
+		if ($Listbox eq 'Listbox' && $Tk::VERSION < 804 &&
+		    $name =~ /^-(activestyle)$/);
 
-	if ($Listbox eq 'Listbox' && $Tk::VERSION >= 804 &&
-	    $name =~ /^-(tile|offset)$/) {
-	    my $skip = "*TODO* $name not yet implemented on $Tk::VERSION";
-	    skip($skip,1);
-	    if ($test->[3] ne "") {
-		skip($skip,1);
-	    }
-	    next;
-	}
+	    skip("*TODO* $name not yet implemented on $Tk::VERSION", 4)
+		if ($Tk::VERSION >= 804 &&
+		    $name =~ /^-(tile|offset)$/);
 
-	$lb->configure($name, $test->[1]);
-	ok(($lb->configure($name))[4], $test->[2], "configuration option $name");
-	ok($lb->cget($name), $test->[2], "cget call with $name");
-	if ($test->[3] ne "") {
-	    eval {
-		$lb->configure($name, $test->[3]);
-	    };
-	    ok($@,qr/$test->[4]/,"wrong error message for $name");
+	    $lb->configure($name, $test->[1]);
+	    pass("configure set for $name");
+	SKIP: {
+		skip("configure test for $name", 1) if $test->[SKIP_CONF];
+		is(($lb->configure($name))[4],$test->[2], "configuration option $name");
+	    }
+	SKIP: {
+		skip("cget test for $name", 1) if $test->[SKIP_CGET];
+		is($lb->cget($name), $test->[2], "cget call with $name");
+	    }
+	SKIP: {
+		skip("error test for $name", 1) if $test->[3] eq "";
+		eval {
+		    $lb->configure($name, $test->[3]);
+		};
+		like($@,qr/$test->[4]/,"error message for $name");
+	    }
+
+	    $lb->configure($name, ($lb->configure($name))[3]);
 	}
-	$lb->configure($name, ($lb->configure($name))[3]);
     }
 
-if ($Listbox ne 'Listbox') {
-    skip(1, 1);
-} else {
+SKIP: {
+    skip("only for Listbox, not for $Listbox", 1)
+	if ($Listbox ne 'Listbox');
+
     eval { Tk::listbox() };
-    ok($@,qr/Usage \$widget->listbox(...)/, "wrong error message");
+    like($@,qr/Usage \$widget->listbox(...)/, "error message");
 }
 
-eval {
-    $lb->destroy;
-    $lb = $mw->$Listbox;
-};
-ok(Tk::Exists($lb), 1);
-ok($lb->class, "$Listbox");
+{
+    eval {
+	$lb->destroy;
+	$lb = $mw->$Listbox;
+    };
+    ok(Tk::Exists($lb));
+    is($lb->class, "$Listbox", "Tk class $Listbox");
+}
 
-eval {
-    $lb->destroy;
-    $lb = $mw->$Listbox(-gorp => "foo");
-};
-ok($@,
-     ($Tk::VERSION < 803)
-       ? qr/Bad option \`-gorp\'/
-       : qr/unknown option \"-gorp\"/,
-      "wrong error message");
+{
+    eval {
+	$lb->destroy;
+	$lb = $mw->$Listbox(-gorp => "foo");
+    };
+    like($@,
+	 ($Tk::VERSION < 803)
+	 ? qr/Bad option \`-gorp\'/
+	 : qr/unknown option \"-gorp\"/,
+	 "error message");
+}
 
-ok(Tk::Exists($lb), 0);
+ok(!Tk::Exists($lb));
 
 $lb = $mw->$Listbox(-width => 20, -height => 5, -bd => 4,
-		   -highlightthickness => 1,
-		   -selectborderwidth => 2)->pack;
+		    -highlightthickness => 1,
+		    -selectborderwidth => 2)->pack;
 $lb->insert(0,
 	    'el0','el1','el2','el3','el4','el5','el6','el7','el8','el9','el10',
 	    'el11','el12','el13','el14','el15','el16','el17');
 $lb->update;
 eval { $lb->activate };
-ok($@,qr/wrong \# args: should be "\.listbox.* activate index"/,
-   "wrong error message");
+like($@,qr/wrong \# args: should be "\.listbox.* activate index"/,
+     "Listbox activate error message");
 
 eval { $lb->activate("fooey") };
-ok($@,qr/bad listbox index "fooey": must be active, anchor, end, \@x,y, or a number/,
-     "wrong error message");
+like($@,qr/bad listbox index "fooey": must be active, anchor, end, \@x,y, or a number/);
 
 $lb->activate(3);
-ok($lb->index("active"), 3);
+is($lb->index("active"), 3, "Listbox activate");
 
 $lb->activate(-1);
-ok($lb->index("active"), 0);
+is($lb->index("active"), 0);
 
 $lb->activate(30);
-ok($lb->index("active"), 17);
+is($lb->index("active"), 17);
 
 $lb->activate("end");
-ok($lb->index("active"), 17);
+is($lb->index("active"), 17);
 
 eval { $lb->bbox };
-ok($@, qr/wrong \# args: should be "\.listbox.* bbox index"/,
-   "wrong error message");
+like($@, qr/wrong \# args: should be "\.listbox.* bbox index"/,
+     "Listbox bbox error message");
 
 eval { $lb->bbox(qw/a b/) };
-ok($@, qr/wrong \# args: should be "\.listbox.* bbox index"/,
-   "wrong error message");
+like($@, qr/wrong \# args: should be "\.listbox.* bbox index"/);
 
 eval { $lb->bbox("fooey") };
-ok($@,qr/bad listbox index "fooey": must be active, anchor, end, \@x,y, or a number/, "wrong error message");
+like($@,qr/bad listbox index "fooey": must be active, anchor, end, \@x,y, or a number/);
 
 $lb->yview(3);
 $lb->update;
-ok($lb->bbox(2), undef);
-ok($lb->bbox(8), undef);
+is($lb->bbox(2), undef, "Listbox bbox");
+is($lb->bbox(8), undef);
 
 # Used to generate a core dump before a bug was fixed (the last
 # element would be on-screen if it existed, but it doesn't exist).
@@ -288,26 +315,32 @@ eval {
     my $x = $l2->bbox(0);
     $l2->destroy;
 };
-ok($@, '', "wrong error message");
+is($@, '', "No core dump with bbox");
 
 $lb->yview(3);
 $lb->update;
-skip($skip_font_test, join(" ", $lb->bbox(3)), "7 7 17 14");
-ok(scalar @{[$lb->bbox(3)]}, 4);
-skip($skip_font_test, ($lb->bbox(3))[0], 7);
-skip($skip_font_test, ($lb->bbox(3))[-1], 14);
-skip($skip_font_test, join(" ", $lb->bbox(4)), "7 26 17 14");
+SKIP: {
+    skip($skip_font_test, 2) if $skip_font_test;
+    is_deeply([$lb->bbox(3)], [qw(7 7 17 14)]);
+    is_deeply([$lb->bbox(4)], [qw(7 26 17 14)]);
+}
 
 $lb->yview(0);
 $lb->update;
-ok($lb->bbox(-1), undef);
-skip($skip_font_test, join(" ", $lb->bbox(0)), "7 7 17 14");
+is($lb->bbox(-1), undef);
+SKIP: {
+    skip($skip_font_test, 1) if $skip_font_test;
+    is_deeply([$lb->bbox(0)], [qw(7 7 17 14)]);
+}
 
 $lb->yview("end");
 $lb->update;
-skip($skip_font_test, join(" ", $lb->bbox(17)), "7 83 24 14");
-skip($skip_font_test, join(" ", $lb->bbox("end")), "7 83 24 14");
-ok($lb->bbox(18), undef);
+SKIP: {
+    skip($skip_font_test, 2) if $skip_font_test;
+    is_deeply([$lb->bbox(17)], [qw(7 83 24 14)]);
+    is_deeply([$lb->bbox("end")], [qw(7 83 24 14)]);
+}
+is($lb->bbox(18), undef);
 
 {
     my $t = $mw->Toplevel;
@@ -320,81 +353,84 @@ ok($lb->bbox(18), undef);
     $lb->pack;
     $lb->update;
     $lb->xview(moveto => 0.2);
-    skip($skip_font_test, join(" ", $lb->bbox(2)), '-72 39 393 14');
-    $t->destroy;
+ SKIP: {
+	skip($skip_font_test, 1) if $skip_font_test;
+	is_deeply([$lb->bbox(2)], [qw(-72 39 393 14)]);
+	$t->destroy;
+    }
 }
 
 mkPartial();
-skip($skip_font_test, join(" ", $partial_lb->bbox(3)), "5 56 24 14");
-skip($skip_font_test, join(" ", $partial_lb->bbox(4)), "5 73 23 14");
+SKIP: {
+    skip($skip_font_test, 2) if $skip_font_test;
+    is_deeply([$partial_lb->bbox(3)], [qw(5 56 24 14)]);
+    is_deeply([$partial_lb->bbox(4)], [qw(5 73 23 14)]);
+}
 
 eval { $lb->cget };
-ok($@,qr/wrong \# args: should be \"\.listbox.* cget option\"/,
-   "wrong error message");
+like($@,qr/wrong \# args: should be \"\.listbox.* cget option\"/,
+     "Listbox cget message");
 
 eval { $lb->cget(qw/a b/) };
-ok($@,qr/wrong \# args: should be \"\.listbox.* cget option\"/,
-   "wrong error message");
+like($@,qr/wrong \# args: should be \"\.listbox.* cget option\"/);
 
 eval { $lb->cget(-gorp) };
-ok($@,qr/unknown option "-gorp"/, "wrong error message");
+like($@,qr/unknown option "-gorp"/);
 
-ok($lb->cget(-setgrid), 0);
-# XXX why 25 in Tk800?
-ok(scalar @{[$lb->configure]}, ($Tk::VERSION < 803 ? 25 : 27));
-ok(join(" ", $lb->configure(-setgrid)),
-   "-setgrid setGrid SetGrid 0 0");
+is($lb->cget(-setgrid), 0);
+# XXX why 25 in Tk800? probably because of less configuration options!
+is(scalar @{[$lb->configure]}, ($Tk::VERSION < 803 ? 25 : 27), "Listbox configure");
+is_deeply([$lb->configure(-setgrid)],
+	  [qw(-setgrid setGrid SetGrid 0 0)]);
 eval { $lb->configure(-gorp) };
-ok($@,qr/unknown option "-gorp"/, "wrong error message");
+like($@,qr/unknown option "-gorp"/);
 
 {
     my $oldbd = $lb->cget(-bd);
     my $oldht = $lb->cget(-highlightthickness);
     $lb->configure(-bd => 3, -highlightthickness => 0);
-    ok($lb->cget(-bd), 3);
-    ok($lb->cget(-highlightthickness), 0);
+    is($lb->cget(-bd), 3);
+    is($lb->cget(-highlightthickness), 0);
     $lb->configure(-bd => $oldbd);
     $lb->configure(-highlightthickness => $oldht);
 }
 
 eval { $lb->curselection("a") };
-ok($@,qr/wrong \# args: should be \"\.listbox.* curselection\"/,
-   "wrong error message");
+like($@,qr/wrong \# args: should be \"\.listbox.* curselection\"/,
+     "Listbox curselection error message");
 
 $lb->selection("clear", 0, "end");
 $lb->selection("set", 3, 6);
 $lb->selection("set", 9);
-ok(join(" ", $lb->curselection), "3 4 5 6 9");
+is_deeply([$lb->curselection], [qw(3 4 5 6 9)],
+	  "Listbox curselection");
 
 # alternative perl/Tk methods
 $lb->selectionClear(0, "end");
 $lb->selectionSet(3, 6);
 $lb->selectionSet(9);
-ok(join(" ", $lb->curselection), "3 4 5 6 9");
+is_deeply([$lb->curselection], [qw(3 4 5 6 9)]);
 
 eval { $lb->delete };
-ok($@,qr/wrong \# args: should be \"\.listbox.* delete firstIndex \?lastIndex\?\"/,
-   "wrong error message");
+like($@,qr/wrong \# args: should be \"\.listbox.* delete firstIndex \?lastIndex\?\"/,
+   "Listbox delete error message");
 
 eval { $lb->delete(qw/a b c/) };
-ok($@,qr/wrong \# args: should be \"\.listbox.* delete firstIndex \?lastIndex\?\"/,
-   "wrong error message");
+like($@,qr/wrong \# args: should be \"\.listbox.* delete firstIndex \?lastIndex\?\"/);
 
 eval { $lb->delete("badindex") };
-ok($@,qr/bad listbox index "badindex": must be active, anchor, end, \@x,y, or a number/,
-   "wrong error message");
+like($@,qr/bad listbox index "badindex": must be active, anchor, end, \@x,y, or a number/);
 
 eval { $lb->delete(2, "123ab") };
-ok($@,qr/bad listbox index "123ab": must be active, anchor, end, \@x,y, or a number/,
-   "wrong error message");
+like($@,qr/bad listbox index "123ab": must be active, anchor, end, \@x,y, or a number/);
 
 {
     my $l2 = $mw->$Listbox;
     $l2->insert(0, qw(el0 el1 el2 el3 el4 el5 el6 el7));
     $l2->delete(3);
-    ok($l2->get(2), "el2");
-    ok($l2->get(3), "el4");
-    ok($l2->index("end"), "7");
+    is($l2->get(2), "el2", "Listbox delete element");
+    is($l2->get(3), "el4");
+    is($l2->index("end"), "7");
     $l2->destroy;
 }
 
@@ -402,9 +438,9 @@ ok($@,qr/bad listbox index "123ab": must be active, anchor, end, \@x,y, or a num
     my $l2 = $mw->$Listbox;
     $l2->insert(0, qw(el0 el1 el2 el3 el4 el5 el6 el7));
     $l2->delete(2, 4);
-    ok($l2->get(1), "el1");
-    ok($l2->get(2), "el5");
-    ok($l2->index("end"), "5");
+    is($l2->get(1), "el1");
+    is($l2->get(2), "el5");
+    is($l2->index("end"), "5");
     $l2->destroy;
 }
 
@@ -412,7 +448,7 @@ ok($@,qr/bad listbox index "123ab": must be active, anchor, end, \@x,y, or a num
     my $l2 = $mw->$Listbox;
     $l2->insert(0, qw(el0 el1 el2 el3 el4 el5 el6 el7));
     $l2->delete(-3, 2);
-    ok(join(" ", $l2->get(0, "end")), "el3 el4 el5 el6 el7");
+    is_deeply([$l2->get(0, "end")], [qw(el3 el4 el5 el6 el7)]);
     $l2->destroy;
 }
 
@@ -420,8 +456,8 @@ ok($@,qr/bad listbox index "123ab": must be active, anchor, end, \@x,y, or a num
     my $l2 = $mw->$Listbox;
     $l2->insert(0, qw(el0 el1 el2 el3 el4 el5 el6 el7));
     $l2->delete(-3, -1);
-    ok(join(" ", $l2->get(0, "end")), join(" ", map { "el$_" } (0 .. 7)));
-    ok(scalar @{[$l2->get(0, "end")]}, 8);
+    is_deeply([$l2->get(0, "end")], [map { "el$_" } (0 .. 7)]);
+    is(scalar @{[$l2->get(0, "end")]}, 8);
     $l2->destroy;
 }
 
@@ -429,8 +465,8 @@ ok($@,qr/bad listbox index "123ab": must be active, anchor, end, \@x,y, or a num
     my $l2 = $mw->$Listbox;
     $l2->insert(0, qw(el0 el1 el2 el3 el4 el5 el6 el7));
     $l2->delete(2, "end");
-    ok(join(" ", $l2->get(0, "end")), "el0 el1");
-    ok(scalar @{[$l2->get(0, "end")]}, 2);
+    is_deeply([$l2->get(0, "end")], [qw(el0 el1)]);
+    is(scalar @{[$l2->get(0, "end")]}, 2);
     $l2->destroy;
 }
 
@@ -438,8 +474,8 @@ ok($@,qr/bad listbox index "123ab": must be active, anchor, end, \@x,y, or a num
     my $l2 = $mw->$Listbox;
     $l2->insert(0, qw(el0 el1 el2 el3 el4 el5 el6 el7));
     $l2->delete(5, 20);
-    ok(join(" ", $l2->get(0, "end")), "el0 el1 el2 el3 el4");
-    ok(scalar @{[$l2->get(0, "end")]}, 5);
+    is_deeply([$l2->get(0, "end")], [qw(el0 el1 el2 el3 el4)]);
+    is(scalar @{[$l2->get(0, "end")]}, 5);
     $l2->destroy;
 }
 
@@ -447,8 +483,8 @@ ok($@,qr/bad listbox index "123ab": must be active, anchor, end, \@x,y, or a num
     my $l2 = $mw->$Listbox;
     $l2->insert(0, qw(el0 el1 el2 el3 el4 el5 el6 el7));
     $l2->delete("end", 20);
-    ok(join(" ", $l2->get(0, "end")), "el0 el1 el2 el3 el4 el5 el6");
-    ok(scalar @{[$l2->get(0, "end")]}, 7);
+    is_deeply([$l2->get(0, "end")], [qw(el0 el1 el2 el3 el4 el5 el6)]);
+    is(scalar @{[$l2->get(0, "end")]}, 7);
     $l2->destroy;
 }
 
@@ -456,107 +492,96 @@ ok($@,qr/bad listbox index "123ab": must be active, anchor, end, \@x,y, or a num
     my $l2 = $mw->$Listbox;
     $l2->insert(0, qw(el0 el1 el2 el3 el4 el5 el6 el7));
     $l2->delete(8, 20);
-    ok(join(" ", $l2->get(0, "end")), "el0 el1 el2 el3 el4 el5 el6 el7");
-    ok(scalar @{[$l2->get(0, "end")]}, 8);
+    is_deeply([$l2->get(0, "end")], [qw(el0 el1 el2 el3 el4 el5 el6 el7)]);
+    is(scalar @{[$l2->get(0, "end")]}, 8);
     $l2->destroy;
 }
 
 eval { $lb->get };
-ok($Tk::VERSION < 803
-   ? $@ =~ /wrong \# args: should be \"\.listbox.* get first \?last\?\"/
-   : $@ =~ /wrong \# args: should be \"\.listbox.* get firstIndex \?lastIndex\?\"/,
-   1,
-   "wrong error message");
+like($@, $Tk::VERSION < 803
+     ? qr/wrong \# args: should be \"\.listbox.* get first \?last\?\"/
+     : qr/wrong \# args: should be \"\.listbox.* get firstIndex \?lastIndex\?\"/,
+     "Listbox get error message");
 
 eval { $lb->get(qw/a b c/) };
-ok($Tk::VERSION < 803
-   ? $@ =~ /wrong \# args: should be \"\.listbox.* get first \?last\?\"/
-   : $@ =~ /wrong \# args: should be \"\.listbox.* get firstIndex \?lastIndex\?\"/,
-   1,
-   "wrong error message");
-
-# XXX is in perl/Tk
-#  eval { $lb->get("2.4") };
-#  ok($@ ,qr/bad listbox index "2.4": must be active, anchor, end, \@x,y, or a number/,
-#     "wrong error message");
+like($@, $Tk::VERSION < 803
+     ? qr/wrong \# args: should be \"\.listbox.* get first \?last\?\"/
+     : qr/wrong \# args: should be \"\.listbox.* get firstIndex \?lastIndex\?\"/);
 
 eval { $lb->get("badindex") };
-ok($@ ,qr/bad listbox index "badindex": must be active, anchor, end, \@x,y, or a number/,
-   "wrong error message");
+like($@ ,qr/bad listbox index "badindex": must be active, anchor, end, \@x,y, or a number/);
 
 eval { $lb->get("end", "bogus") };
-ok($@ ,qr/bad listbox index "bogus": must be active, anchor, end, \@x,y, or a number/,
-   "wrong error message");
+like($@ ,qr/bad listbox index "bogus": must be active, anchor, end, \@x,y, or a number/);
 
 {
     my $l2 = $mw->$Listbox;
     $l2->insert(0, qw(el0 el1 el2 el3 el4 el5 el6 el7));
-    ok($l2->get(0), "el0");
-    ok($l2->get(3), "el3");
-    ok($l2->get("end"), "el7");
+    is($l2->get(0), "el0");
+    is($l2->get(3), "el3");
+    # This is valid in perl/Tk, but not Tcl/Tk
+    is($lb->get("3.4"), "el3", "get with float");
+    is($l2->get("end"), "el7");
     $l2->destroy;
 }
 
 {
     my $l2 = $mw->$Listbox;
-    ok($l2->get(0), undef);
-    ok($l2->get("end"), undef);
+    is($l2->get(0), undef);
+    is($l2->get("end"), undef);
     $l2->destroy;
 }
 
 {
     my $l2 = $mw->$Listbox;
     $l2->insert(0, qw(el0 el1 el2), "two words", qw(el4 el5 el6 el7));
-    ok($l2->get(3), "two words");
-    ok(($l2->get(3, "end"))[0], "two words");
-    ok(join(" ", $l2->get(3, "end")), "two words el4 el5 el6 el7");
+    is($l2->get(3), "two words");
+    is(($l2->get(3, "end"))[0], "two words");
+    is_deeply([$l2->get(3, "end")], ['two words', qw(el4 el5 el6 el7)]);
 }
 
-ok($lb->get(-1), undef);
-ok($lb->get(-2, -1), undef);
-ok(join(" ", $lb->get(-2, 3)), "el0 el1 el2 el3");
-ok(scalar @{[ $lb->get(-2, 3) ]}, 4);
+is($lb->get(-1), undef);
+is($lb->get(-2, -1), undef);
+is_deeply([$lb->get(-2, 3)], [qw(el0 el1 el2 el3)]);
+is(scalar @{[ $lb->get(-2, 3) ]}, 4);
 
-ok(join(" ", $lb->get(12, "end")), "el12 el13 el14 el15 el16 el17");
-ok(scalar @{[ $lb->get(12, "end") ]}, 6);
-ok(join(" ", $lb->get(12, 20)), "el12 el13 el14 el15 el16 el17");
-ok(scalar @{[ $lb->get(12, 20) ]}, 6);
+is_deeply([$lb->get(12, "end")], [qw(el12 el13 el14 el15 el16 el17)]);
+is(scalar @{[ $lb->get(12, "end") ]}, 6);
+is_deeply([$lb->get(12, 20)], [qw(el12 el13 el14 el15 el16 el17)]);
+is(scalar @{[ $lb->get(12, 20) ]}, 6);
 
-ok($lb->get("end"), "el17");
-ok($lb->get(30), undef);
-ok($lb->get(30, 35), ());
+is($lb->get("end"), "el17");
+is($lb->get(30), undef);
+is_deeply([$lb->get(30, 35)], []);
 
 eval { $lb->index };
-ok($@ ,qr/wrong \# args: should be \"\.listbox.* index index\"/,
-   "wrong error message");
+like($@ ,qr/wrong \# args: should be \"\.listbox.* index index\"/,
+     "Listbox index error message");
 
 eval { $lb->index(qw/a b/) };
-ok($@ ,qr/wrong \# args: should be \"\.listbox.* index index\"/,
-   "wrong error message");
+like($@ ,qr/wrong \# args: should be \"\.listbox.* index index\"/);
 
 eval { $lb->index(qw/@/) };
-ok($@ ,qr/bad listbox index "\@": must be active, anchor, end, \@x,y, or a number/,
-   "wrong error message");
+like($@ ,qr/bad listbox index "\@": must be active, anchor, end, \@x,y, or a number/);
 
-ok($lb->index(2), 2);
-ok($lb->index(-1), -1);
-ok($lb->index("end"), 18);
-ok($lb->index(34), 34);
+is($lb->index(2), 2);
+is($lb->index(-1), -1);
+is($lb->index("end"), 18);
+is($lb->index(34), 34);
 
 eval { $lb->insert };
-ok($@ ,qr/wrong \# args: should be \"\.listbox.* insert index \?element element \.\.\.\?\"/,
-   "wrong error message");
+like($@ ,qr/wrong \# args: should be \"\.listbox.* insert index \?element element \.\.\.\?\"/,
+     "Listbox insert error message");
 
 eval { $lb->insert("badindex") };
-ok($@ ,qr/bad listbox index "badindex": must be active, anchor, end, \@x,y, or a number/,
-   "wrong error message");
+like($@ ,qr/bad listbox index "badindex": must be active, anchor, end, \@x,y, or a number/);
 
 {
     my $l2 = $mw->$Listbox;
     $l2->insert("end", qw/a b c d e/);
     $l2->insert(3, qw/x y z/);
-    ok(join(" ", $l2->get(0, "end")), 'a b c x y z d e');
-    ok(scalar @{[ $l2->get(0, "end") ]}, 8);
+    is_deeply([$l2->get(0, "end")], [qw(a b c x y z d e)], "Listbox insert");
+    is(scalar @{[ $l2->get(0, "end") ]}, 8);
     $l2->destroy;
 }
 
@@ -564,8 +589,8 @@ ok($@ ,qr/bad listbox index "badindex": must be active, anchor, end, \@x,y, or a
     my $l2 = $mw->$Listbox;
     $l2->insert("end", qw/a b c/);
     $l2->insert(-1, qw/x/);
-    ok(join(" ", $l2->get(0, "end")), 'x a b c');
-    ok(scalar @{[ $l2->get(0, "end") ]}, 4);
+    is_deeply([$l2->get(0, "end")], [qw(x a b c)]);
+    is(scalar @{[ $l2->get(0, "end") ]}, 4);
     $l2->destroy;
 }
 
@@ -573,8 +598,8 @@ ok($@ ,qr/bad listbox index "badindex": must be active, anchor, end, \@x,y, or a
     my $l2 = $mw->$Listbox;
     $l2->insert("end", qw/a b c/);
     $l2->insert("end", qw/x/);
-    ok(join(" ", $l2->get(0, "end")), 'a b c x');
-    ok(scalar @{[ $l2->get(0, "end") ]}, 4);
+    is_deeply([$l2->get(0, "end")], [qw(a b c x)]);
+    is(scalar @{[ $l2->get(0, "end") ]}, 4);
     $l2->destroy;
 }
 
@@ -582,55 +607,50 @@ ok($@ ,qr/bad listbox index "badindex": must be active, anchor, end, \@x,y, or a
     my $l2 = $mw->$Listbox;
     $l2->insert("end", qw/a b c/);
     $l2->insert(43, qw/x/);
-    ok(join(" ", $l2->get(0, "end")), 'a b c x');
-    ok(scalar @{[ $l2->get(0, "end") ]}, 4);
+    is_deeply([$l2->get(0, "end")], [qw(a b c x)]);
+    is(scalar @{[ $l2->get(0, "end") ]}, 4);
     $l2->insert(4, qw/y/);
-    ok(join(" ", $l2->get(0, "end")), 'a b c x y');
+    is_deeply([$l2->get(0, "end")], [qw(a b c x y)]);
     $l2->insert(6, qw/z/);
-    ok(join(" ", $l2->get(0, "end")), 'a b c x y z');
+    is_deeply([$l2->get(0, "end")], [qw(a b c x y z)]);
     $l2->destroy;
 }
 
-eval { $lb->nearest };
-ok($@ ,qr/wrong \# args: should be \"\.listbox.* nearest y\"/,
-   "wrong error message");
+SKIP: {
+    skip("nearest not yet implemented", 4)
+	if $Listbox eq 'TextList';
 
-eval { $lb->nearest(qw/a b/) };
-ok($@ ,qr/wrong \# args: should be \"\.listbox.* nearest y\"/,
-   "wrong error message");
+    eval { $lb->nearest };
+    like($@ ,qr/wrong \# args: should be \"\.listbox.* nearest y\"/,
+	 "Listbox nearest error message");
 
-eval { $lb->nearest("badindex") };
-ok($@ ,qr/\'badindex\' isn\'t numeric/,
-   "wrong error message");
+    eval { $lb->nearest(qw/a b/) };
+    like($@ ,qr/wrong \# args: should be \"\.listbox.* nearest y\"/);
 
-$lb->yview(3);
-ok($lb->nearest(1000), 7);
+    eval { $lb->nearest("badindex") };
+    like($@ ,qr/\'badindex\' isn\'t numeric/);
+
+    $lb->yview(3);
+    is($lb->nearest(1000), 7, "Listbox nearest");
+}
 
 eval { $lb->scan };
-ok($@,qr/wrong \# args: should be \"\.listbox.* scan mark\|dragto x y\"/,
-   "wrong error message");
+like($@,qr/wrong \# args: should be \"\.listbox.* scan mark\|dragto x y\"/,
+     "Listbox scan error message");
 
 eval { $lb->scan(qw/a b/) };
-ok($@,qr/wrong \# args: should be \"\.listbox.* scan mark\|dragto x y\"/,
-   "wrong error message");
+like($@,qr/wrong \# args: should be \"\.listbox.* scan mark\|dragto x y\"/);
 
 eval { $lb->scan(qw/a b c d/) };
-ok( $@,qr/wrong \# args: should be \"\.listbox.* scan mark\|dragto x y\"/,
-   "wrong error message");
+like($@,qr/wrong \# args: should be \"\.listbox.* scan mark\|dragto x y\"/);
 
 eval { $lb->scan(qw/foo bogus 2/) };
-ok($@ ,qr/\'bogus\' isn\'t numeric/, "wrong error message");
-
-## is in perl
-#  eval { $lb->scan(qw/foo 2 2.3/) };
-#  ok($@ ,qr/'2.3' isn't numeric/,
-#     "wrong error message");
+like($@ ,qr/\'bogus\' isn\'t numeric/);
 
 eval { $lb->scan(qw/foo 2 3/) };
-ok($Tk::VERSION < 803
-   ? $@ =~ /bad scan option \"foo\": must be mark or dragto/
-   : $@ =~ /bad option \"foo\": must be mark, or dragto/,
-   1, "wrong error message");
+like($@, $Tk::VERSION < 803
+     ? qr/bad scan option \"foo\": must be mark or dragto/
+     : qr/bad option \"foo\": must be mark, or dragto/);
 
 {
     my $t = $mw->Toplevel;
@@ -643,167 +663,165 @@ ok($Tk::VERSION < 803
     $lb->update;
     $lb->scan("mark", 100, 140);
     $lb->scan("dragto", 90, 137);
+    $lb->scan("dragto", "90.1", "137.1"); # ok in Perl/Tk, an error in Tcl/Tk
     $lb->update;
-    skip($skip_font_test,
-	 join(",",$lb->xview) ,qr/^0\.24936.*,0\.42748.*$/,
-	 join(",",$lb->xview));
-    skip($skip_font_test,
-	 join(",",$lb->yview) ,qr/^0\.071428.*,0\.428571.*$/,
-	 join(",",$lb->yview));
+ SKIP: {
+	skip($skip_font_test, 2) if $skip_font_test;
+	like(join(",",$lb->xview), qr/^0\.24936.*,0\.42748.*$/, "Listbox scan");
+	like(join(",",$lb->yview), qr/^0\.071428.*,0\.428571.*$/);
+    }
     $t->destroy;
 }
 
 eval { $lb->see };
-ok($@ ,qr/wrong \# args: should be \"\.listbox.* see index\"/,
-   "wrong error message");
+like($@ ,qr/wrong \# args: should be \"\.listbox.* see index\"/,
+     "Listbox see error message");
 
 eval { $lb->see("a","b") };
-ok($@ ,qr/wrong \# args: should be \"\.listbox.* see index\"/,
-   "wrong error message");
+like($@ ,qr/wrong \# args: should be \"\.listbox.* see index\"/);
 
 eval { $lb->see("badindex") };
-ok($@ ,qr/bad listbox index "badindex": must be active, anchor, end, \@x,y, or a number/,
-   "wrong error message");
+like($@ ,qr/bad listbox index "badindex": must be active, anchor, end, \@x,y, or a number/);
 
 $lb->yview(7);
 $lb->see(7);
-ok($lb->index('@0,0'), 7);
+is($lb->index('@0,0'), 7, "Listbox see");
 
 $lb->yview(7);
 $lb->see(11);
-ok($lb->index('@0,0'), 7);
+is($lb->index('@0,0'), 7);
 
 $lb->yview(7);
 $lb->see(6);
-ok($lb->index('@0,0'), 6);
+is($lb->index('@0,0'), 6);
 
 $lb->yview(7);
 $lb->see(5);
-ok($lb->index('@0,0'), 3);
+is($lb->index('@0,0'), 3);
 
 $lb->yview(7);
 $lb->see(12);
-ok($lb->index('@0,0'), 8);
+is($lb->index('@0,0'), 8);
 
 $lb->yview(7);
 $lb->see(13);
-ok($lb->index('@0,0'), 11);
+is($lb->index('@0,0'), 11);
 
 $lb->yview(7);
 $lb->see(-1);
-ok($lb->index('@0,0'), 0);
+is($lb->index('@0,0'), 0);
 
 $lb->yview(7);
 $lb->see("end");
-ok($lb->index('@0,0'), 13);
+is($lb->index('@0,0'), 13);
 
 $lb->yview(7);
 $lb->see(322);
-ok($lb->index('@0,0'), 13);
+is($lb->index('@0,0'), 13);
 
 mkPartial();
 $partial_lb->see(4);
-ok($partial_lb->index('@0,0'), 1);
+is($partial_lb->index('@0,0'), 1);
 
 eval { $lb->selection };
-ok($@ ,qr/wrong \# args: should be \"\.listbox.* selection option index \?index\?\"/,
-   "wrong error message");
+like($@ ,qr/wrong \# args: should be \"\.listbox.* selection option index \?index\?\"/,
+     "Listbox selection error message");
 
 eval { $lb->selection("a") };
-ok($@ ,qr/wrong \# args: should be \"\.listbox.* selection option index \?index\?\"/,
-   "wrong error message");
+like($@ ,qr/wrong \# args: should be \"\.listbox.* selection option index \?index\?\"/);
 
 eval { $lb->selection(qw/a b c d/) };
-ok($@ ,qr/wrong \# args: should be \"\.listbox.* selection option index \?index\?\"/,
-   "wrong error message");
+like($@ ,qr/wrong \# args: should be \"\.listbox.* selection option index \?index\?\"/);
 
 eval { $lb->selection(qw/a bogus/) };
-ok($@ ,qr/bad listbox index \"bogus\": must be active, anchor, end, \@x,y, or a number/,
-   "wrong error message");
+like($@ ,qr/bad listbox index \"bogus\": must be active, anchor, end, \@x,y, or a number/);
 
 eval { $lb->selection(qw/a 0 lousy/) };
-ok($@ ,qr/bad listbox index \"lousy\": must be active, anchor, end, \@x,y, or a number/,
-   "wrong error message");
+like($@ ,qr/bad listbox index \"lousy\": must be active, anchor, end, \@x,y, or a number/);
 
 eval { $lb->selection(qw/anchor 0 0/) };
-ok($@ ,qr/wrong \# args: should be \"\.listbox.* selection anchor index\"/,
-   "wrong error message");
+like($@ ,qr/wrong \# args: should be \"\.listbox.* selection anchor index\"/);
 
-$lb->selection("anchor", 5);
-ok($lb->index("anchor"), 5);
-$lb->selectionAnchor(0);
-ok($lb->index("anchor"), 0);
+SKIP: {
+    skip("anchor index not yet implemented", 5)
+	if $Listbox eq 'TextList';
 
-$lb->selectionAnchor(-1);
-ok($lb->index("anchor"), 0);
-$lb->selectionAnchor("end");
-ok($lb->index("anchor"), 17);
-$lb->selectionAnchor(44);
-ok($lb->index("anchor"), 17);
+    $lb->selection("anchor", 5);
+    is($lb->index("anchor"), 5, "Listbox selection");
+    $lb->selectionAnchor(0);
+    is($lb->index("anchor"), 0);
+
+    $lb->selectionAnchor(-1);
+    is($lb->index("anchor"), 0);
+    $lb->selectionAnchor("end");
+    is($lb->index("anchor"), 17);
+    $lb->selectionAnchor(44);
+    is($lb->index("anchor"), 17);
+}
 
 $lb->selection("clear", 0, "end");
 $lb->selection("set", 2, 8);
 $lb->selection("clear", 3, 4);
-ok(join(",",$lb->curselection), "2,5,6,7,8");
+is_deeply([$lb->curselection], [2,5,6,7,8]);
 
 $lb->selectionClear(0, "end");
 $lb->selectionSet(2, 8);
 $lb->selectionClear(3, 4);
-ok(join(",",$lb->curselection), "2,5,6,7,8");
+is_deeply([$lb->curselection], [2,5,6,7,8]);
 
 eval { $lb->selection(qw/includes 0 0/) };
-ok($@ ,qr/wrong \# args: should be \"\.listbox.* selection includes index\"/,
-   "wrong error message");
+like($@ ,qr/wrong \# args: should be \"\.listbox.* selection includes index\"/,
+     "Tk selection includes error message");
 
 $lb->selectionClear(0, "end");
 $lb->selectionSet(2,8);
 $lb->selectionClear(4);
-ok($lb->selection("includes", 3), 1);
-ok($lb->selection("includes", 4), 0);
-ok($lb->selection("includes", 5), 1);
-ok($lb->selectionIncludes(3), 1);
+is($lb->selection("includes", 3), 1, "Listbox selection includes");
+is($lb->selection("includes", 4), 0);
+is($lb->selection("includes", 5), 1);
+is($lb->selectionIncludes(3), 1);
 
 $lb->selectionSet(0, "end");
-ok($lb->selectionIncludes(-1), 0);
+is($lb->selectionIncludes(-1), 0);
 
 $lb->selectionClear(0, "end");
 $lb->selectionSet("end");
-ok($lb->selection("includes", "end"), 1);
+is($lb->selection("includes", "end"), 1);
 
 $lb->selectionClear(0, "end");
 $lb->selectionSet("end");
-ok($lb->selection("includes", 44), 0);
+is($lb->selection("includes", 44), 0);
 
 {
     my $l2 = $mw->$Listbox;
-    ok($l2->selectionIncludes(0), 0);
+    is($l2->selectionIncludes(0), 0);
     $l2->destroy;
 }
 
 $lb->selection(qw(clear 0 end));
 $lb->selection(qw(set 2));
 $lb->selection(qw(set 5 7));
-ok(join(" ", $lb->curselection), "2 5 6 7");
-ok(scalar @{[$lb->curselection]}, 4);
+is_deeply([$lb->curselection], [qw(2 5 6 7)]);
+is(scalar @{[$lb->curselection]}, 4);
 $lb->selection(qw(set 5 7));
-ok(join(" ", $lb->curselection), "2 5 6 7");
-ok(scalar @{[$lb->curselection]}, 4);
+is_deeply([$lb->curselection], [qw(2 5 6 7)]);
+is(scalar @{[$lb->curselection]}, 4);
 
 eval { $lb->selection(qw/badOption 0 0/) };
-ok($@, qr/bad option \"badOption\": must be anchor, clear, includes, or set/,
-   "wrong error message");
+like($@, qr/bad option \"badOption\": must be anchor, clear, includes, or set/,
+     "Listbox selection error message");
 
 eval { $lb->size(qw/a/) };
-ok($@ ,qr/wrong \# args: should be \"\.listbox.* size\"/,
-   "wrong error message");
+like($@ ,qr/wrong \# args: should be \"\.listbox.* size\"/,
+     "Listbox size error message");
 
-ok($lb->size, 18);
+is($lb->size, 18, "Listbox size");
 
 {
     my $l2 = $mw->$Listbox;
     $l2->update;
-    ok(($l2->xview)[0], 0);
-    ok(($l2->xview)[1], 1);
+    is(($l2->xview)[0], 0, "xview, first value");
+    is(($l2->xview)[1], 1, "xview, second value");
     $l2->destroy;
 }
 
@@ -812,8 +830,8 @@ $lb = $mw->$Listbox(-width => 10, -height => 5, -font => $fixed);
 $lb->insert(qw/0 a b c d e f g h i j k l m n o p q r s t/);
 $lb->pack;
 $lb->update;
-ok(($lb->xview)[0], 0);
-ok(($lb->xview)[1], 1);
+is(($lb->xview)[0], 0);
+is(($lb->xview)[1], 1);
 
 eval { $lb->destroy };
 $lb = $mw->$Listbox(-width => 10, -height => 5, -font => $fixed);
@@ -822,52 +840,61 @@ $lb->insert(qw/1 0123456789a123456789b123456789c123456789d123456789/);
 $lb->pack;
 $lb->update;
 
-$lb->xview(4);
-ok_float(join(",",$lb->xview), "0.08,0.28");
+SKIP: {
+    skip("xview not fully implemented", 1)
+	if $Listbox eq 'TextList';
+
+    $lb->xview(4);
+    is_float(join(",",$lb->xview), "0.08,0.28", "Listbox xview with floats");
+}
 
 eval { $lb->xview("foo") };
-ok($@ ,qr/\'foo\' isn\'t numeric/,
-   "wrong error message");
+like($@ ,qr/\'foo\' isn\'t numeric/,
+     "Listbox xview error message");
 
 eval { $lb->xview("zoom", "a", "b") };
-ok($@ ,qr/unknown option \"zoom\": must be moveto or scroll/,
-   "wrong error message");
+like($@ ,qr/unknown option \"zoom\": must be moveto or scroll/);
 
-$lb->xview(0);
-$lb->xview(moveto => 0.4);
-$lb->update;
-ok_float(($lb->xview)[0], 0.4);
-ok_float(($lb->xview)[1], 0.6);
+SKIP: {
+    skip("xview not fully implemented", 5)
+	if $Listbox eq 'TextList';
 
-$lb->xview(0);
-$lb->xview(scroll => 2, "units");
-$lb->update;
-ok_float("@{[ $lb->xview ]}", '0.04 0.24');
+    $lb->xview(0);
+    $lb->xview(moveto => 0.4);
+    $lb->update;
+    is_float(($lb->xview)[0], 0.4);
+    is_float(($lb->xview)[1], 0.6);
 
-$lb->xview(30);
-$lb->xview(scroll => -1, "pages");
-$lb->update;
-ok_float("@{[ $lb->xview ]}", '0.44 0.64');
+    $lb->xview(0);
+    $lb->xview(scroll => 2, "units");
+    $lb->update;
+    is_float("@{[ $lb->xview ]}", '0.04 0.24');
 
-$lb->configure(-width => 1);
-$lb->update;
-$lb->xview(30);
-$lb->xview("scroll", -4, "pages");
-$lb->update;
-ok_float("@{[ $lb->xview ]}", '0.52 0.54');
+    $lb->xview(30);
+    $lb->xview(scroll => -1, "pages");
+    $lb->update;
+    is_float("@{[ $lb->xview ]}", '0.44 0.64');
+
+    $lb->configure(-width => 1);
+    $lb->update;
+    $lb->xview(30);
+    $lb->xview("scroll", -4, "pages");
+    $lb->update;
+    is_float("@{[ $lb->xview ]}", '0.52 0.54');
+}
 
 eval { $lb->destroy };
 $lb = $mw->$Listbox->pack;
 $lb->update;
-ok(($lb->yview)[0], 0);
-ok(($lb->yview)[1], 1);
+is(($lb->yview)[0], 0);
+is(($lb->yview)[1], 1);
 
 eval { $lb->destroy };
 $lb = $mw->$Listbox->pack;
 $lb->insert(0, "el1");
 $lb->update;
-ok(($lb->yview)[0], 0);
-ok(($lb->yview)[1], 1);
+is(($lb->yview)[0], 0);
+is(($lb->yview)[1], 1);
 
 eval { $lb->destroy };
 $lb = $mw->$Listbox(-width => 10, -height => 5, -font => $fixed);
@@ -877,39 +904,38 @@ $lb->pack;
 $lb->update;
 $lb->yview(4);
 $lb->update;
-ok_float(($lb->yview)[0], 0.2);
-ok_float(($lb->yview)[1], 0.45);
+is_float(($lb->yview)[0], 0.2);
+is_float(($lb->yview)[1], 0.45);
 
 mkPartial();
-ok(($partial_lb->yview)[0], 0);
-ok(($partial_lb->yview)[1] ,qr/^0\.\d+$/,
-   "got " . (($partial_lb->yview)[1]));
+is(($partial_lb->yview)[0], 0);
+like(($partial_lb->yview)[1] ,qr/^0\.\d+$/,
+     "yview returned " . (($partial_lb->yview)[1]));
 
-eval { $lb->xview("foo") };
-ok($@ ,qr/\'foo\' isn\'t numeric/,
-   "wrong error message");
+eval { $lb->yview("foo") };
+like($@ ,qr/\Qbad listbox index "foo": must be active, anchor, end, \E\@\Qx,y, or a number/,
+     "Listbox yview error message");
 
-eval { $lb->xview("foo", "a", "b") };
-ok($@ ,qr/unknown option \"foo\": must be moveto or scroll/,
-   "wrong error message");
+eval { $lb->yview("foo", "a", "b") };
+like($@ ,qr/unknown option \"foo\": must be moveto or scroll/);
 
 $lb->yview(0);
 $lb->yview(moveto => 0.31);
-ok_float("@{[ $lb->yview ]}", "0.3 0.55");
+is_float("@{[ $lb->yview ]}", "0.3 0.55");
 
 $lb->yview(2);
 $lb->yview(scroll => 2 => "pages");
-ok_float("@{[ $lb->yview ]}", "0.4 0.65");
+is_float("@{[ $lb->yview ]}", "0.4 0.65");
 
 $lb->yview(10);
 $lb->yview(scroll => -3 => "units");
-ok_float("@{[ $lb->yview ]}", "0.35 0.6");
+is_float("@{[ $lb->yview ]}", "0.35 0.6");
 
 $lb->configure(-height => 2);
 $lb->update;
 $lb->yview(15);
 $lb->yview(scroll => -4 => "pages");
-ok_float("@{[ $lb->yview ]}", "0.55 0.65");
+is_float("@{[ $lb->yview ]}", "0.55 0.65");
 
 # No tests for DestroyListbox:  I can't come up with anything to test
 # in this procedure.
@@ -918,22 +944,22 @@ eval { $lb->destroy };
 $lb = $mw->$Listbox(-setgrid => 1, -width => 25, -height => 15);
 $lb->pack;
 $mw->update;
-ok(getsize($mw), qr/^\d+x\d+$/);
+like(getsize($mw), qr/^\d+x\d+$/);
 $lb->configure(-setgrid => 0);
 $mw->update;
-ok(getsize($mw), qr/^\d+x\d+$/);
+like(getsize($mw), qr/^\d+x\d+$/);
 
 resetGridInfo();
 
 $lb->configure(-highlightthickness => -3);
-ok($lb->cget(-highlightthickness), 0);
+is($lb->cget(-highlightthickness), 0);
 
 $lb->configure(-exportselection => 0);
 $lb->delete(0, "end");
 $lb->insert(0, qw(el0 el1 el2 el3 el4 el5 el6 el7 el8));
 $lb->selection("set", 3, 5);
 $lb->configure(-exportselection => 1);
-ok($mw->SelectionGet, "el3\nel4\nel5");
+is($mw->SelectionGet, "el3\nel4\nel5");
 
 my $e = $mw->Entry;
 $e->insert(0, "abc");
@@ -945,8 +971,8 @@ $lb->insert(0, qw(el0 el1 el2 el3 el4 el5 el6 el7 el8));
 $lb->selectionSet(3, 5);
 $lb->selectionClear(3, 5);
 $lb->configure(-exportselection => 1);
-ok($mw->SelectionOwner, $e);
-ok($mw->SelectionGet, "ab");
+is($mw->SelectionOwner, $e);
+is($mw->SelectionGet, "ab");
 $e->destroy;
 
 $mw->SelectionClear;
@@ -954,26 +980,24 @@ $lb->configure(-exportselection => 1);
 $lb->delete(0, "end");
 $lb->insert(qw(0 el0 el1 el2 el3 el4 el5 el6 el7 el8));
 $lb->selection("set", 1, 1);
-ok($mw->SelectionGet, "el1");
-ok(join(',',$lb->curselection), "1"); # join forces list context
+is($mw->SelectionGet, "el1");
+is(join(',',$lb->curselection), "1"); # join forces list context
 $lb->configure(-exportselection => 0);
 eval { $mw->SelectionGet };
-ok($@ ,qr/PRIMARY selection doesn\'t exist or form \"(UTF8_)?STRING\" not defined/,
-   "wrong error message: $@");
-ok(join(',',$lb->curselection), "1"); # join forces list context
+like($@ ,qr/PRIMARY selection doesn\'t exist or form \"(UTF8_)?STRING\" not defined/,
+     "SelectionGet, error message");
+is(join(',',$lb->curselection), "1"); # join forces list context
 $lb->selection("clear", 0, "end");
 eval { $mw->SelectionGet };
-ok($@ ,qr/PRIMARY selection doesn\'t exist or form \"(UTF8_)?STRING\" not defined/,
-   "wrong error message: $@");
-ok($lb->curselection, ());
+like($@ ,qr/PRIMARY selection doesn\'t exist or form \"(UTF8_)?STRING\" not defined/);
+is($lb->curselection, undef, "Empty curselection");
 $lb->selection("set", 1, 3);
 eval { $mw->SelectionGet };
-ok($@ ,qr/PRIMARY selection doesn\'t exist or form \"(UTF8_)?STRING\" not defined/,
-   "wrong error message: $@");
-ok("@{[$lb->curselection]}", "1 2 3");
+like($@ ,qr/PRIMARY selection doesn\'t exist or form \"(UTF8_)?STRING\" not defined/);
+is_deeply([$lb->curselection], [qw(1 2 3)]);
 $lb->configure(-exportselection => 1);
-ok($mw->SelectionGet, "el1\nel2\nel3");
-ok("@{[$lb->curselection]}", "1 2 3");
+is($mw->SelectionGet, "el1\nel2\nel3");
+is_deeply([$lb->curselection], [qw(1 2 3)]);
 
 $lb->destroy;
 $mw->geometry("300x300");
@@ -984,10 +1008,10 @@ $lb = $mw->$Listbox(-font => $fixed, -width => 15, -height => 20);
 $lb->pack;
 $lb->update;
 $mw->deiconify;
-ok(getsize($mw), qr/^\d+x\d+$/);
+like(getsize($mw), qr/^\d+x\d+$/);
 $lb->configure(-setgrid => 1);
 $mw->update;
-ok(getsize($mw), qr/^\d+x\d+$/);
+like(getsize($mw), qr/^\d+x\d+$/);
 
 $lb->destroy;
 $mw->withdraw;
@@ -997,13 +1021,17 @@ $mw->geometry("+0+0");
 $lb->pack;
 $mw->update;
 $mw->deiconify;
-ok(getsize($mw), "30x20"); # TODO
-$mw->geometry("26x15");
-$mw->update;
-ok(getsize($mw), "26x15"); # TODO
-$lb->configure(-setgrid => 1);
-$lb->update;
-ok(getsize($mw), "26x15"); # TODO
+{
+    local $TODO = "Tests may fail (window-manager related?)";
+
+    is(getsize($mw), "30x20");
+    $mw->geometry("26x15");
+    $mw->update;
+    is(getsize($mw), "26x15");
+    $lb->configure(-setgrid => 1);
+    $lb->update;
+    is(getsize($mw), "26x15");
+}
 
 $mw->geometry("");
 $lb->destroy;
@@ -1019,122 +1047,169 @@ $lb->update;
 $lb->configure(-fg => "black");
 @log = ();
 $lb->update;
-ok($log[0], "y 0 1");
-ok($log[1], "x 0 1");
+is($log[0], "y 0 1");
+is($log[1], "x 0 1");
 
 $lb->destroy;
-my @x = qw/a b c d/;
-#XXX these are missing: -listvar tests, because 800.023 do not know this option
-# $lb = $mw->$Listbox(-listvar => \@x);
-# ok(join(",",$lb->get(0, "end")), "a,b,c,d");
 
-#test listbox-4.10 {ConfigureListbox, no listvar -> existing listvar} {
-#    catch {destroy $_lb}
-#    set x [list a b c d]
-#    listbox $_lb
-#    $_lb insert end 1 2 3 4
-#    $_lb configure -listvar x
-#    $_lb get 0 end
-#} [list a b c d]
-#test listbox-4.11 {ConfigureListbox procedure, listvar -> no listvar} {
-#    catch {destroy $_lb}
-#    set x [list a b c d]
-#    listbox $_lb -listvar x
-#    $_lb configure -listvar {}
-#    $_lb insert end 1 2 3 4
-#    list $x [$_lb get 0 end]
-#} [list [list a b c d] [list a b c d 1 2 3 4]]
-#test listbox-4.12 {ConfigureListbox procedure, listvar -> different listvar} {
-#    catch {destroy $_lb}
-#    set x [list a b c d]
-#    set y [list 1 2 3 4]
-#    listbox $_lb
-#    $_lb configure -listvar x
-#    $_lb configure -listvar y
-#    $_lb insert end 5 6 7 8
-#    list $x $y
-#} [list [list a b c d] [list 1 2 3 4 5 6 7 8]]
-#test listbox-4.13 {ConfigureListbox, no listvar -> non-existant listvar} {
-#    catch {destroy $_lb}
-#    catch {unset x}
-#    listbox $_lb
-#    $_lb insert end a b c d
-#    $_lb configure -listvar x
-#    set x
-#} [list a b c d]
-#test listbox-4.14 {ConfigureListbox, non-existant listvar} {
-#    catch {destroy $_lb}
-#    catch {unset x}
-#    listbox $_lb -listvar x
-#    list [info exists x] $x
-#} [list 1 {}]
-#test listbox-4.15 {ConfigureListbox, listvar -> non-existant listvar} {
-#    catch {destroy $_lb}
-#    catch {unset y}
-#    set x [list a b c d]
-#    listbox $_lb -listvar x
-#    $_lb configure -listvar y
-#    list [info exists y] $y
-#} [list 1 [list a b c d]]
-#test listbox-4.16 {ConfigureListbox, listvar -> same listvar} {
-#    catch {destroy $_lb}
-#    set x [list a b c d]
-#    listbox $_lb -listvar x
-#    $_lb configure -listvar x
-#    set x
-#} [list a b c d]
-#test listbox-4.17 {ConfigureListbox, no listvar -> no listvar} {
-#    catch {destroy $_lb}
-#    listbox $_lb
-#    $_lb insert end a b c d
-#    $_lb configure -listvar {}
-#    $_lb get 0 end
-#} [list a b c d]
-#test listbox-4.18 {ConfigureListbox, no listvar -> bad listvar} {
-#    catch {destroy $_lb}
-#    listbox $_lb
-#    $_lb insert end a b c d
-#    set x {this is a " bad list}
-#    catch {$_lb configure -listvar x} result
-#    list [$_lb get 0 end] [$_lb cget -listvar] $result
-#} [list [list a b c d] {} \
-#	"unmatched open quote in list: invalid listvar value"]
+SKIP: {
+    skip("no -listvar in older Tks", 12)
+	if !$listvar_impl;
+    {
+	my @x = qw/a b c d/;
+	my $lb = $mw->$Listbox(-listvar => \@x);
+	is_deeply([$lb->get(0, "end")], [qw(a b c d)], "-listvar after initial setting");
+	$lb->destroy;
+    }
+
+    {
+	my @x = qw(a b c d);
+	my $lb = $mw->$Listbox;
+	$lb->insert(qw(end 1 2 3 4));
+	$lb->configure(-listvar => \@x);
+	is_deeply([$lb->get(qw(0 end))], [qw(a b c d)],
+		  q{ConfigureListbox, no listvar -> existing listvar});
+	$lb->destroy;
+    }
+
+    {
+ 	local $TODO = "Not yet implemented in Perl/Tk";
+
+ 	my @x = qw(a b c d);
+ 	my $lb = $mw->$Listbox(-listvar => \@x);
+ 	$lb->configure(-listvar => undef);
+ 	$lb->insert(qw(end 1 2 3 4));
+ 	is_deeply([@x], [qw(a b c d)],
+ 		  q{ConfigureListbox procedure, listvar -> no listvar});
+ 	is_deeply([$lb->get(qw(0 end))], [qw(a b c d 1 2 3 4)]);
+ 	$lb->destroy;
+    }
+    
+    if (0) { # TODO: dumps core!!!
+	my @x = qw(a b c d);
+	my @y = (1..4);
+	my $lb = $mw->$Listbox(-listvar => \@x);
+	$lb->configure(-listvar => \@x);
+	$lb->configure(-listvar => \@y);
+	$lb->insert(qw(end 5 6 7 8));
+	is_deeply(\@x, [qw(a b c d)],
+		  q{ConfigureListbox procedure, listvar -> different listvar});
+	is_deeply(\@y, [qw(1 2 3 4 5 6 7 8)]);
+	$lb->destroy;
+    }
+
+    {
+ 	local $TODO = "Not yet implemented in Perl/Tk";
+
+	my @x;
+	my $lb = $mw->$Listbox;
+	$lb->insert(qw(end a b c d));
+	$lb->configure(-listvar => \@x);
+	is_deeply(\@x, [qw(a b c d)],
+		  q{ConfigureListbox, no listvar -> non-existant listvar});
+	$lb->destroy;
+    }
+
+    {
+	my @x;
+	my $lb = $mw->$Listbox(-listvar => \@x);
+	is_deeply(\@x, [], q{ConfigureListbox, non-existant listvar});
+    }
+
+    {
+ 	local $TODO = "Not yet implemented in Perl/Tk";
+
+	my @x = qw(a b c d);
+	my @y;
+	my $lb = $mw->$Listbox(-listvar => \@x);
+	$lb->configure(-listvar => \@y);
+	is_deeply(\@y, [qw(a b c d)],
+		  q{ConfigureListbox, listvar -> non-existant listvar});
+	$lb->destroy;
+    }
+
+
+    {
+	my @x = qw(a b c d);
+	my $lb = $mw->$Listbox(-listvar => \@x);
+	$lb->configure(-listvar => \@x);
+	is_deeply(\@x, [qw(a b c d)],
+		  q{ConfigureListbox, listvar -> same listvar});
+	$lb->destroy;
+    }
+
+    {
+	my $lb = $mw->$Listbox;
+	$lb->insert(qw(end a b c d));
+	$lb->configure(-listvar => undef);
+	is_deeply([$lb->get(qw(0 end))], [qw(a b c d)],
+		  q{ConfigureListbox, no listvar -> no listvar});
+    }
+
+    {
+	local $TODO = "Not yet implemented in Perl/Tk";
+
+	my $lb = $mw->$Listbox;
+	$lb->insert(qw(end a b c d));
+	my $x = "this is not an array";
+	eval { $lb->configure(-listvar => \$x) };
+	like($@, qr{Should have an error message about invalid type});
+	is_deeply([$lb->get(qw(0 end))], [qw(a b c d)],
+		  q{ConfigureListbox, no listvar -> bad listvar});
+	is($lb->cget(-listvar), undef);
+    }
+}
 
 # No tests for DisplayListbox:  I don't know how to test this procedure.
 
 Tk::catch { $lb->destroy if Tk::Exists($lb) };
 $lb = $mw->$Listbox(-font => $fixed, -width => 15, -height => 20)->pack;
-skip($skip_fixed_font_test, $lb->reqwidth, 115);
-skip($skip_fixed_font_test, $lb->reqheight, 328);
+SKIP: {
+    skip($skip_fixed_font_test, 2) if $skip_fixed_font_test;
+    is($lb->reqwidth, 115, "Reqwidth with fixed font");
+    is($lb->reqheight, 328, "Reqheight with fixed font");
+}
 
 eval { $lb->destroy };
 $lb = $mw->$Listbox(-font => $fixed, -width => 0, -height => 10)->pack;
 $lb->update;
-skip($skip_fixed_font_test, $lb->reqwidth, 17);
-skip($skip_fixed_font_test, $lb->reqheight, 168);
+SKIP: {
+    skip($skip_fixed_font_test, 2) if $skip_fixed_font_test;
+    is($lb->reqwidth, 17);
+    is($lb->reqheight, 168);
+}
 
 eval { $lb->destroy };
 $lb = $mw->$Listbox(-font => $fixed, -width => 0, -height => 10,
 		   -bd => 3)->pack;
 $lb->insert(0, "Short", "Really much longer", "Longer");
 $lb->update;
-skip($skip_fixed_font_test, $lb->reqwidth, 138);
-skip($skip_fixed_font_test, $lb->reqheight, 170);
+SKIP: {
+    skip($skip_fixed_font_test, 2) if $skip_fixed_font_test;
+    is($lb->reqwidth, 138);
+    is($lb->reqheight, 170);
+}
 
 eval { $lb->destroy };
 $lb = $mw->$Listbox(-font => $fixed, -width => 10, -height => 0,
 		  )->pack;
 $lb->update;
-skip($skip_fixed_font_test, $lb->reqwidth, 80);
-skip($skip_fixed_font_test, $lb->reqheight, 24);
+SKIP: {
+    skip($skip_fixed_font_test, 2) if $skip_fixed_font_test;
+    is($lb->reqwidth, 80);
+    is($lb->reqheight, 24);
+}
 
 eval { $lb->destroy };
 $lb = $mw->$Listbox(-font => $fixed, -width => 10, -height => 0,
 		   -highlightthickness => 0)->pack;
 $lb->insert(0, "Short", "Really much longer", "Longer");
 $lb->update;
-skip($skip_fixed_font_test, $lb->reqwidth, 76);
-skip($skip_fixed_font_test, $lb->reqheight, 52);
+SKIP: {
+    skip($skip_fixed_font_test, 2) if $skip_fixed_font_test;
+    is($lb->reqwidth, 76);
+    is($lb->reqheight, 52);
+}
 
 eval { $lb->destroy };
 # If "0" in selected font had 0 width, caused divide-by-zero error.
@@ -1152,53 +1227,53 @@ $lb->insert(qw/end a b c d/);
 $lb->insert(qw/5 x y z/);
 $lb->insert(qw/2 A/);
 $lb->insert(qw/0 q r s/);
-ok(join(" ",$lb->get(qw/0 end/)), 'q r s a b A c d x y z');
+is_deeply([$lb->get(qw/0 end/)], [qw(q r s a b A c d x y z)]);
 
 $lb->delete(qw/0 end/);
 $lb->insert(qw/0 a b c d e f g h i j/);
 $lb->selection(qw/anchor 2/);
 $lb->insert(qw/2 A B/);
-ok($lb->index(qw/anchor/), 4);
+is($lb->index(qw/anchor/), 4);
 
 $lb->delete(qw/0 end/);
 $lb->insert(qw/0 a b c d e f g h i j/);
 $lb->selection(qw/anchor 2/);
 $lb->insert(qw/3 A B/);
-ok($lb->index(qw/anchor/), 2);
+is($lb->index(qw/anchor/), 2);
 
 $lb->delete(qw/0 end/);
 $lb->insert(qw/0 a b c d e f g h i j/);
 $lb->yview(qw/3/);
 $lb->update;
 $lb->insert(qw/2 A B/);
-ok($lb->index(q/@0,0/), 5);
+is($lb->index(q/@0,0/), 5);
 
 $lb->delete(qw/0 end/);
 $lb->insert(qw/0 a b c d e f g h i j/);
 $lb->yview(qw/3/);
 $lb->update;
 $lb->insert(qw/3 A B/);
-ok($lb->index(q/@0,0/), 3);
+is($lb->index(q/@0,0/), 3);
 
 $lb->delete(qw/0 end/);
 $lb->insert(qw/0 a b c d e f g h i j/);
 $lb->activate(qw/5/);
 $lb->insert(qw/5 A B/);
-ok($lb->index(qw/active/), 7);
+is($lb->index(qw/active/), 7);
 
 $lb->delete(qw/0 end/);
 $lb->insert(qw/0 a b c d e f g h i j/);
 $lb->activate(qw/5/);
 $lb->insert(qw/6 A B/);
-ok($lb->index(qw/active/), 5);
+is($lb->index(qw/active/), 5);
 
 $lb->delete(qw/0 end/);
 $lb->insert(qw/0 a b c/);
-ok($lb->index(qw/active/), 2);
+is($lb->index(qw/active/), 2);
 
 $lb->delete(qw/0 end/);
 $lb->insert(qw/0/);
-ok($lb->index(qw/active/), 0);
+is($lb->index(qw/active/), 0);
 
 $lb->delete(qw/0 end/);
 $lb->insert(qw/0 a b/, "two words", qw/c d e f g h i j/);
@@ -1206,8 +1281,7 @@ $lb->update;
 @log = ();
 $lb->insert(qw/0 word/);
 $lb->update;
-print "# @log\n";
-ok("@log",qr/^y 0 0\.\d+/);
+like("@log",qr/^y 0 0\.\d+/);
 
 $lb->delete(qw/0 end/);
 $lb->insert(qw/0 a b/, "two words", qw/c d e f g h i j/);
@@ -1215,31 +1289,31 @@ $lb->update;
 @log = ();
 $lb->insert(0, "much longer entry");
 $lb->update;
-print "# @log\n";
-ok("$log[0]",qr/^y 0 0\.\d+/);
-ok("$log[1]", qr/x 0 \d[\d\.]*/);
+like("$log[0]",qr/^y 0 0\.\d+/);
+like("$log[1]", qr/x 0 \d[\d\.]*/);
 
-{
+SKIP: {
+    skip($skip_font_test, 4) if $skip_font_test;
     my $l2 = $mw->$Listbox(-width => 0, -height => 0)->pack(-side => "top");
     $l2->insert(0, "a", "b", "two words", "c", "d");
-    skip($skip_font_test, $l2->reqwidth, 80);
-    skip($skip_font_test, $l2->reqheight, 93);
+    is($l2->reqwidth, 80);
+    is($l2->reqheight, 93);
     $l2->insert(0, "much longer entry");
-    skip($skip_font_test, $l2->reqwidth, 122);
-    skip($skip_font_test, $l2->reqheight, 110);
+    is($l2->reqwidth, 122);
+    is($l2->reqheight, 110);
     $l2->destroy;
 }
 
-{
-      my @x = qw(a b c d);
-    ## -listvar XXX
-#      my $l2 = $mw->$Listbox(-listvar => \@x);
-#      $l2->insert(0, 1 .. 4);
-#      ok(join(" ", @x), "1 2 3 4 a b c d");
-#      ok(scalar @x, 8);
-#      ok($x[0], 1);
-#      ok($x[-1], "d");
-#      $l2->destroy;
+SKIP: {
+    skip("-listvar not implemented in older Tks", 1)
+	if !$listvar_impl;
+    skip("dumps core *TODO*", 1);
+
+    my @x = qw(a b c d);
+    my $l2 = $mw->$Listbox(-listvar => \@x);
+    $l2->insert(0, 1 .. 4);
+    is_deeply([@x], [qw(1 2 3 4 a b c d)]);
+    $l2->destroy;
 }
 
 {
@@ -1247,8 +1321,9 @@ ok("$log[1]", qr/x 0 \d[\d\.]*/);
     $l2->insert(0, 0 .. 4);
     $l2->selection("set", 2, 4);
     $l2->insert(0, "a");
-    ok("@{[ $l2->curselection ]}", "3 4 5");
-    ok(scalar @{[ $l2->curselection ]}, 3);
+    is_deeply([ $l2->curselection ], [qw(3 4 5)],
+	      "curselection after selection set");
+    is(scalar @{[ $l2->curselection ]}, 3);
     $l2->destroy;
 }
 
@@ -1256,119 +1331,119 @@ $lb->delete(0, "end");
 $lb->insert(0, qw/a b c d e f g h i j/);
 $lb->selectionSet(1, 6);
 $lb->delete(4, 3);
-ok($lb->size, 10);
-ok($mw->SelectionGet, "b
+is($lb->size, 10, "size after negative delete");
+is($mw->SelectionGet, "b
 c
 d
 e
 f
-g");
+g", "SelectionGet after selectionSet");
 
 $lb->delete(qw/0 end/);
 $lb->insert(qw/0 a b c d e f g h i j/);
 $lb->selection(qw/set 3 6/);
 $lb->delete(qw/4 4/);
-ok($lb->size, 9);
-ok($lb->get(4), "f");
-ok("@{[ $lb->curselection ]}", "3 4 5");
-ok(scalar @{[ $lb->curselection ]}, 3);
-ok(($lb->curselection)[0], 3);
-ok(($lb->curselection)[-1], 5);
+is($lb->size, 9);
+is($lb->get(4), "f");
+is_deeply([ $lb->curselection ], [3,4,5]);
+is(scalar @{[ $lb->curselection ]}, 3);
+is(($lb->curselection)[0], 3);
+is(($lb->curselection)[-1], 5);
 
 $lb->delete(qw/0 end/);
 $lb->insert(qw/0 a b c d e f g h i j/);
 $lb->delete(qw/0 3/);
-ok($lb->size, 6);
-ok($lb->get(0), "e");
-ok($lb->get(1), "f");
+is($lb->size, 6);
+is($lb->get(0), "e");
+is($lb->get(1), "f");
 
 $lb->delete(qw/0 end/);
 $lb->insert(qw/0 a b c d e f g h i j/);
 $lb->delete(qw/8 1000/);
-ok($lb->size, 8);
-ok($lb->get(7), "h");
+is($lb->size, 8);
+is($lb->get(7), "h");
 
 $lb-> delete(0, qw/end/);
 $lb->insert(qw/0 a b c d e f g h i j/);
 $lb->selection(qw/anchor 2/);
 $lb->delete(qw/0 1/);
-ok($lb->index(qw/anchor/), 0);
+is($lb->index(qw/anchor/), 0);
 
 $lb->delete(qw/0 end/);
 $lb->insert(qw/0 a b c d e f g h i j/);
 $lb->selection(qw/anchor 2/);
 $lb->delete(qw/2/);
-ok($lb->index(qw/anchor/), 2);
+is($lb->index(qw/anchor/), 2);
 
 $lb->delete(qw/0 end/);
 $lb->insert(qw/0 a b c d e f g h i j/);
 $lb->selection(qw/anchor 4/);
 $lb->delete(qw/2 5/);
-ok($lb->index(qw/anchor/), 2);
+is($lb->index(qw/anchor/), 2);
 
 $lb->delete(qw/0 end/);
 $lb->insert(qw/0 a b c d e f g h i j/);
 $lb->selection(qw/anchor 3/);
 $lb->delete(qw/4 5/);
-ok($lb->index(qw/anchor/), 3);
+is($lb->index(qw/anchor/), 3);
 
 $lb->delete(qw/0 end/);
 $lb->insert(qw/0 a b c d e f g h i j/);
 $lb->yview(qw/3/);
 $lb->update;
 $lb->delete(qw/1 2/);
-ok($lb->index(q/@0,0/), 1);
+is($lb->index(q/@0,0/), 1);
 
 $lb->delete(qw/0 end/);
 $lb->insert(qw/0 a b c d e f g h i j/);
 $lb->yview(qw/3/);
 $lb->update;
 $lb->delete(qw/3 4/);
-ok($lb->index(q/@0,0/), 3);
+is($lb->index(q/@0,0/), 3);
 
 $lb->delete(qw/0 end/);
 $lb->insert(qw/0 a b c d e f g h i j/);
 $lb->yview(qw/3/);
 $lb->update;
 $lb->delete(qw/4 6/);
-ok($lb->index(q/@0,0/), 3);
+is($lb->index(q/@0,0/), 3);
 
 $lb->delete(qw/0 end/);
 $lb->insert(qw/0 a b c d e f g h i j/);
 $lb->yview(qw/3/);
 $lb->update;
 $lb->delete(qw/3 end/);
-ok($lb->index(q/@0,0/), qr/^[12]$/);
+like($lb->index(q/@0,0/), qr/^[12]$/);
 
 mkPartial();
 $partial_lb->yview(8);
 $mw->update;
 $partial_lb->delete(10, 13);
-ok($partial_lb->index('@0,0'), qr/^[67]$/);
+like($partial_lb->index('@0,0'), qr/^[67]$/);
 
 $lb->delete(qw/0 end/);
 $lb->insert(qw/0 a b c d e f g h i j/);
 $lb->activate(qw/6/);
 $lb->delete(qw/3 4/);
-ok($lb->index(qw/active/), 4);
+is($lb->index(qw/active/), 4);
 
 $lb->delete(qw/0 end/);
 $lb->insert(qw/0 a b c d e f g h i j/);
 $lb->activate(qw/6/);
 $lb->delete(qw/5 7/);
-ok($lb->index(qw/active/), 5);
+is($lb->index(qw/active/), 5);
 
 $lb->delete(qw/0 end/);
 $lb->insert(qw/0 a b c d e f g h i j/);
 $lb->activate(qw/6/);
 $lb->delete(qw/5 end/);
-ok($lb->index(qw/active/), 4);
+is($lb->index(qw/active/), 4);
 
 $lb->delete(qw/0 end/);
 $lb->insert(qw/0 a b c d e f g h i j/);
 $lb->activate(qw/6/);
 $lb->delete(qw/0 end/);
-ok($lb->index(qw/active/), 0);
+is($lb->index(qw/active/), 0);
 
 $lb->delete(qw/0 end/);
 $lb->insert(qw/0 a b c/, "two words", qw/d e f g h i j/);
@@ -1376,7 +1451,7 @@ $lb->update;
 @log = ();
 $lb->delete(qw/4 6/);
 $lb->update;
-ok($log[0], qr/y 0 0\.\d+/);
+like($log[0], qr/y 0 0\.\d+/);
 
 $lb->delete(qw/0 end/);
 $lb->insert(qw/0 a b c/, "two words", qw/d e f g h i j/);
@@ -1384,37 +1459,40 @@ $lb->update;
 @log = ();
 $lb->delete(qw/3/);
 $lb->update;
-ok($log[0], qr/^y 0 0\.\d+$/);
-ok($log[1], "x 0 1");
+like($log[0], qr/^y 0 0\.\d+$/);
+is($log[1], "x 0 1");
 
-{
+SKIP: {
+    skip($skip_font_test, 4) if $skip_font_test;
     my $l2 = $mw->$Listbox(-width => 0, -height => 0)->pack(-side => "top");
     $l2->insert(0, "a", "b", "two words", qw/c d e f g/);
-    skip($skip_font_test, $l2->reqwidth, 80);
-    skip($skip_font_test, $l2->reqheight, 144);
+    is($l2->reqwidth, 80);
+    is($l2->reqheight, 144);
     $l2->delete(2, 4);
-    skip($skip_font_test, $l2->reqwidth, 17);
-    skip($skip_font_test, $l2->reqheight, 93);
+    is($l2->reqwidth, 17);
+    is($l2->reqheight, 93);
     $l2->destroy;
 }
 
-## -listvar
-#  catch {destroy .l2}
-#  test listbox-7.21 {DeleteEls procedure, check -listvar update} {
-#      catch {destroy .l2}
-#      set x [list a b c d]
-#      listbox .l2 -listvar x
-#      .l2 delete 0 1
-#      set x
-#  } [list c d]
+SKIP: {
+    skip("-listvar not implemented in older Tks", 1)
+	if !$listvar_impl;
+    skip("dumps core *TODO*", 1);
+
+    my @x = qw(a b c d);
+    my $l2 = $mw->Listbox(-listvar => \@x);
+    $l2->delete(0, 1);
+    is_deeply(\@x, ["c","d"],
+	      q{DeleteEls procedure, check -listvar update});
+}
 
 $lb->destroy;
 $lb = $mw->$Listbox(-setgrid => 1)->pack;
 $lb->update;
-ok(getsize($mw), qr/^\d+x\d+$/); # still worth it ?
+like(getsize($mw), qr/^\d+x\d+$/); # still worth it ?
 $lb->destroy;
-ok(getsize($mw), qr/^\d+x\d+$/); # still worth it ?
-ok(Tk::Exists($lb), 0);
+like(getsize($mw), qr/^\d+x\d+$/); # still worth it ?
+ok(!Tk::Exists($lb), "Listbox is destroyed");
 
 resetGridInfo();
 
@@ -1425,14 +1503,17 @@ $lb->pack;
 $lb->update;
 $lb->place(qw/-width 50 -height 80/);
 $lb->update;
-skip($skip_font_test, join(" ", $lb->xview), qr/^0 0\.2222/);
-skip($skip_font_test, join(" ", $lb->yview), qr/^0 0\.3333/);
+SKIP: {
+    skip($skip_font_test, 2) if $skip_font_test;
+    like(join(" ", $lb->xview), qr/^0 0\.2222/);
+    like(join(" ", $lb->yview), qr/^0 0\.3333/);
+}
 
 map { $_->destroy } $mw->children;
 my $l1 = $mw->$Listbox(-bg => "#543210");
 my $l2 = $l1;
-ok(join(",", map { $_->PathName } $mw->children) ,qr/^\.listbox\d*$/);
-ok($l2->cget(-bg), "#543210");
+like(join(",", map { $_->PathName } $mw->children) ,qr/^\.listbox\d*$/);
+is($l2->cget(-bg), "#543210");
 $l2->destroy;
 
 my $top = $mw->Toplevel;
@@ -1441,94 +1522,101 @@ my $top_lb = $top->$Listbox(-setgrid => 1,
 			    -width => 20,
 			    -height => 10)->pack;
 $top_lb->update;
-ok($top->geometry, qr/20x10\+\d+\+\d+/);
+like($top->geometry, qr/20x10\+\d+\+\d+/);
 $top_lb->destroy;
-skip($skip_font_test, $top->geometry, qr/150x178\+\d+\+\d+/);
+SKIP: {
+    skip($skip_font_test, 1) if $skip_font_test;
+    like($top->geometry, qr/150x178\+\d+\+\d+/, "Geometry");
+}
 
 $lb = $mw->$Listbox->pack;
 $lb->delete(0, "end");
 $lb->insert(qw/0 el0 el1 el2 el3 el4 el5 el6 el7 el8 el9 el10 el11/);
 $lb->activate(3);
-ok($lb->index("active"), 3);
+is($lb->index("active"), 3);
 $lb->activate(6);
-ok($lb->index("active"), 6);
+is($lb->index("active"), 6);
 
 $lb->selection(qw/anchor 2/);
-ok($lb->index(qw/anchor/), 2);
+is($lb->index(qw/anchor/), 2);
 
 $lb->insert(qw/end A B C D E/);
 $lb->selection(qw/anchor end/);
 $lb->delete(qw/12 end/);
-ok($lb->index("anchor"), 12);
-ok($lb->index("end"), 12);
+is($lb->index("anchor"), 12);
+is($lb->index("end"), 12);
 
 eval { $lb->index("a") };
-ok($@ ,qr/bad listbox index \"a\": must be active, anchor, end, \@x,y, or a number/, "wrong error message $@");
+like($@ ,qr/bad listbox index \"a\": must be active, anchor, end, \@x,y, or a number/, "Listbox index error message");
 
 eval { $lb->index("\@") };
-ok($@ ,qr/bad listbox index \"\@\": must be active, anchor, end, \@x,y, or a number/, "wrong error message $@");
+like($@ ,qr/bad listbox index \"\@\": must be active, anchor, end, \@x,y, or a number/);
 
 eval { $lb->index("\@foo") };
-ok($@ ,qr/bad listbox index \"\@foo\": must be active, anchor, end, \@x,y, or a number/, "wrong error message $@");
+like($@ ,qr/bad listbox index \"\@foo\": must be active, anchor, end, \@x,y, or a number/);
 
 eval { $lb->index("\@1x3") };
-ok($@ ,qr/bad listbox index \"\@1x3\": must be active, anchor, end, \@x,y, or a number/, "wrong error message $@");
+like($@ ,qr/bad listbox index \"\@1x3\": must be active, anchor, end, \@x,y, or a number/);
 
 eval { $lb->index("\@1,") };
-ok($@ ,qr/bad listbox index \"\@1,\": must be active, anchor, end, \@x,y, or a number/, "wrong error message $@");
+like($@ ,qr/bad listbox index \"\@1,\": must be active, anchor, end, \@x,y, or a number/);
 
 eval { $lb->index("\@1,foo") };
-ok($@ ,qr/bad listbox index \"\@1,foo\": must be active, anchor, end, \@x,y, or a number/, "wrong error message $@");
+like($@ ,qr/bad listbox index \"\@1,foo\": must be active, anchor, end, \@x,y, or a number/);
 
 eval { $lb->index("\@1,2x") };
-ok($@ ,qr/bad listbox index \"\@1,2x\": must be active, anchor, end, \@x,y, or a number/, "wrong error message $@");
+like($@ ,qr/bad listbox index \"\@1,2x\": must be active, anchor, end, \@x,y, or a number/);
 
 eval { $lb->index("1xy") };
-ok($@ ,qr/bad listbox index \"1xy\": must be active, anchor, end, \@x,y, or a number/, "wrong error message $@");
+like($@ ,qr/bad listbox index \"1xy\": must be active, anchor, end, \@x,y, or a number/);
 
-ok($lb->index("end"), 12);
+is($lb->index("end"), 12);
 
-ok($lb->get(qw/end/), "el11");
+is($lb->get(qw/end/), "el11");
 
 $lb->delete(qw/0 end/);
-ok($lb->index(qw/end/), 0);
+is($lb->index(qw/end/), 0);
 
 $lb->delete(qw/0 end/);
 $lb->insert(qw/0 el0 el1 el2 el3 el4 el5 el6 el7 el8 el9 el10 el11/);
 $lb->update;
 
-ok($lb->index(q/@5,57/), 3);
-ok($lb->index(q/@5,58/), 3);
+SKIP: {
+    skip($skip_font_test, 2) if $skip_font_test;
 
-ok($lb->index(qw/3/), 3);
-ok($lb->index(qw/20/), 20);
+    is($lb->index(q/@5,57/), 3);
+    is($lb->index(q/@5,58/), 3);
+}
 
-ok($lb->get(qw/20/), undef);
+is($lb->index(qw/3/), 3);
+is($lb->index(qw/20/), 20);
 
-ok($lb->index(qw/-2/), -2);
+is($lb->get(qw/20/), undef);
+
+is($lb->index(qw/-2/), -2);
 
 $lb->delete(qw/0 end/);
-ok($lb->index(qw/1/), 1);
+is($lb->index(qw/1/), 1);
 
 $lb->destroy;
 $lb = $mw->$Listbox(-height => 5)->pack;
 $lb->insert(qw/0 a b c d e f g h i j/);
 $lb->yview(qw/3/);
 $lb->update;
-ok($lb->index(q/@0,0/), 3);
+is($lb->index(q/@0,0/), 3);
 $lb->yview(qw/-1/);
 $lb->update;
-ok($lb->index(q/@0,0/), 0);
+is($lb->index(q/@0,0/), 0);
 
 $lb->destroy;
 $lb = $mw->$Listbox(qw/-height 5/)->pack;
 $lb->insert(qw/0 a b c d e f g h i j/);
 $lb->yview(qw/3/);
 $lb->update;
-ok($lb->index(q/@0,0/), 3);
+is($lb->index(q/@0,0/), 3);
 $lb->yview(qw/20/);
 $lb->update;
-ok($lb->index(q/@0,0/), 5);
+is($lb->index(q/@0,0/), 5);
 
 $lb->destroy;
 $lb = $mw->$Listbox(qw/-height 5 -yscrollcommand/, [qw/record y/])->pack;
@@ -1537,8 +1625,8 @@ $lb->update;
 @log = ();
 $lb->yview(qw/2/);
 $lb->update;
-ok_float("@{[ $lb->yview ]}", "0.2 0.7");
-ok_float($log[0], "y 0.2 0.7");
+is_float("@{[ $lb->yview ]}", "0.2 0.7");
+is_float($log[0], "y 0.2 0.7");
 
 $lb->destroy;
 $lb = $mw->$Listbox(qw/-height 5 -yscrollcommand/, [qw/record y/])->pack;
@@ -1547,8 +1635,8 @@ $lb->update;
 @log = ();
 $lb->yview(qw/8/);
 $lb->update;
-ok_float("@{[ $lb->yview ]}", "0.5 1");
-ok_float($log[0], "y 0.5 1");
+is_float("@{[ $lb->yview ]}", "0.5 1");
+is_float($log[0], "y 0.5 1");
 
 $lb->destroy;
 $lb = $mw->$Listbox(qw/-height 5 -yscrollcommand/, [qw/record y/])->pack;
@@ -1558,12 +1646,12 @@ $lb->update;
 @log = ();
 $lb->yview(qw/3/);
 $lb->update;
-ok_float("@{[ $lb->yview ]}", "0.3 0.8");
-ok(scalar @log, 0);
+is_float("@{[ $lb->yview ]}", "0.3 0.8");
+is(scalar @log, 0);
 
 mkPartial();
 $partial_lb->yview(13);
-ok($partial_lb->index('@0,0'), qr/^1[01]$/);
+like($partial_lb->index('@0,0'), qr/^1[01]$/);
 
 $lb->destroy;
 $lb = $mw->$Listbox(-font => $fixed,
@@ -1576,24 +1664,24 @@ $lb->update;
 @log = ();
 $lb->xview(qw/99/);
 $lb->update;
-ok_float("@{[ $lb->xview ]}", "0.9 1");
-ok_float(($lb->xview)[0], 0.9);
-ok(($lb->xview)[1], 1);
-ok_float($log[0], "x 0.9 1");
+is_float("@{[ $lb->xview ]}", "0.9 1");
+is_float(($lb->xview)[0], 0.9);
+is(($lb->xview)[1], 1);
+is_float($log[0], "x 0.9 1");
 
 @log = ();
 $lb->xview(qw/moveto -.25/);
 $lb->update;
-ok_float("@{[ $lb->xview ]}", "0 0.1");
-ok_float($log[0], "x 0 0.1");
+is_float("@{[ $lb->xview ]}", "0 0.1");
+is_float($log[0], "x 0 0.1");
 
 $lb->xview(qw/10/);
 $lb->update;
 @log = ();
 $lb->xview(qw/10/);
 $lb->update;
-ok_float("@{[ $lb->xview ]}", "0.1 0.2");
-ok(scalar @log, 0);
+is_float("@{[ $lb->xview ]}", "0.1 0.2");
+is(scalar @log, 0);
 
 $lb->destroy;
 $lb = $mw->$Listbox(-font => $fixed, -width => 10, -height => 5)->pack;
@@ -1608,38 +1696,38 @@ $lb->xview(qw/0/);
 $lb->scan(qw/mark 10 20/);
 $lb->scan(qw/dragto/, 10-$width, 20-$height);
 $lb->update;
-ok_float("@{[ $lb->xview ]}", "0.2 0.4");
-ok_float("@{[ $lb->yview ]}", "0.5 0.75");
+is_float("@{[ $lb->xview ]}", "0.2 0.4");
+is_float("@{[ $lb->yview ]}", "0.5 0.75");
 
 $lb->yview(qw/5/);
 $lb->xview(qw/10/);
 $lb->scan(qw/mark 10 20/);
 $lb->scan(qw/dragto 20 40/);
 $lb->update;
-ok_float("@{[ $lb->xview ]}", "0 0.2");
-ok_float("@{[ $lb->yview ]}", "0 0.25");
+is_float("@{[ $lb->xview ]}", "0 0.2");
+is_float("@{[ $lb->yview ]}", "0 0.25");
 
 $lb->scan(qw/dragto/, 20-$width, 40-$height);
 $lb->update;
-ok_float("@{[ $lb->xview ]}", "0.2 0.4");
-ok_float(join(',',$lb->xview), "0.2,0.4");  # just to prove it is a list
-ok_float("@{[ $lb->yview ]}", "0.5 0.75");
-ok_float(join(',',$lb->yview), "0.5,0.75"); # just to prove it is a list
+is_float("@{[ $lb->xview ]}", "0.2 0.4");
+is_float(join(',',$lb->xview), "0.2,0.4");  # just to prove it is a list
+is_float("@{[ $lb->yview ]}", "0.5 0.75");
+is_float(join(',',$lb->yview), "0.5,0.75"); # just to prove it is a list
 
 $lb->yview(qw/moveto 1.0/);
 $lb->xview(qw/moveto 1.0/);
 $lb->scan(qw/mark 10 20/);
 $lb->scan(qw/dragto 5 10/);
 $lb->update;
-ok_float("@{[ $lb->xview ]}", "0.8 1");
-ok_float("@{[ $lb->yview ]}", "0.75 1");
+is_float("@{[ $lb->xview ]}", "0.8 1");
+is_float("@{[ $lb->yview ]}", "0.75 1");
 $lb->scan(qw/dragto/, 5+$width, 10+$height);
 $lb->update;
-ok_float("@{[ $lb->xview ]}", "0.64 0.84");
-ok_float("@{[ $lb->yview ]}", "0.25 0.5");
+is_float("@{[ $lb->xview ]}", "0.64 0.84");
+is_float("@{[ $lb->yview ]}", "0.25 0.5");
 
 mkPartial();
-ok($partial_lb->nearest($partial_lb->height), 4);
+is($partial_lb->nearest($partial_lb->height), 4);
 
 $lb->destroy;
 $lb = $mw->$Listbox(-font => $fixed,
@@ -1650,19 +1738,22 @@ $lb->yview(qw/4/);
 $lb->pack;
 $lb->update;
 
-skip($skip_fixed_font_test, $lb->index(q/@50,0/), 4);
+SKIP: {
+    skip($skip_fixed_font_test, 3) if $skip_fixed_font_test;
 
-skip($skip_fixed_font_test, $lb->index(q/@50,35/), 5);
-skip($skip_fixed_font_test, $lb->index(q/@50,36/), 6);
+    is($lb->index(q/@50,0/), 4);
+    is($lb->index(q/@50,35/), 5);
+    is($lb->index(q/@50,36/), 6);
+}
 
-ok($lb->index(q/@50,200/), qr/^\d+/);
+like($lb->index(q/@50,200/), qr/^\d+/);
 
 $lb->delete(qw/0 end/);
 $lb->insert(qw/0 a b c d e f g h i j k l m n o p/);
 $lb->selection(qw/set 2 4/);
 $lb->selection(qw/set 7 12/);
 $lb->selection(qw/clear 4 7/);
-ok("@{[ $lb->curselection ]}", "2 3 8 9 10 11 12");
+is_deeply([ $lb->curselection ], [qw(2 3 8 9 10 11 12)]);
 
 $lb->delete(qw/0 end/);
 $lb->insert(qw/0 a b c d e f g h i j k l m n o p/);
@@ -1672,76 +1763,76 @@ $e->insert(0, "This is some text");
 $e->selection(qw/from 0/);
 $e->selection(qw/to 7/);
 $lb->selection(qw/clear 2 4/);
-ok($mw->SelectionOwner, $e);
+is($mw->SelectionOwner, $e);
 $lb->selection(qw/set 3/);
-ok($mw->SelectionOwner, $lb);
-ok($mw->SelectionGet, "d");
+is($mw->SelectionOwner, $lb);
+is($mw->SelectionGet, "d");
 
 $lb->delete(qw/0 end/);
 $lb->selection(qw/clear 0 end/);
 $lb->selection(qw/set 0 end/);
-ok($lb->curselection, ());
+is($lb->curselection, undef);
 
 $lb->delete(qw/0 end/);
 $lb->insert(qw/0 a b c d e f/);
 $lb->selection(qw/clear 0 end/);
 $lb->selection(qw/set -2 -1/);
-ok($lb->curselection, ());
+is($lb->curselection, undef);
 
 $lb->delete(qw/0 end/);
 $lb->insert(qw/0 a b c d e f/);
 $lb->selection(qw/clear 0 end/);
 $lb->selection(qw/set -1 3/);
-ok(join(",",$lb->curselection), "0,1,2,3");
+is_deeply([$lb->curselection], [0,1,2,3]);
 
 $lb->delete(qw/0 end/);
 $lb->insert(qw/0 a b c d e f/);
 $lb->selection(qw/clear 0 end/);
 $lb->selection(qw/set 2 4/);
-ok(join(" ", $lb->curselection), "2 3 4");
+is_deeply([$lb->curselection], [qw(2 3 4)]);
 
 $lb->delete(qw/0 end/);
 $lb->insert(qw/0 a b c d e f/);
 $lb->selection(qw/clear 0 end/);
 $lb->selection(qw/set 4 end/);
-ok(join(" ", $lb->curselection), "4 5");
+is_deeply([$lb->curselection], [4, 5]);
 
 $lb->delete(qw/0 end/);
 $lb->insert(qw/0 a b c d e f/);
 $lb->selection(qw/clear 0 end/);
 $lb->selection(qw/set 4 30/);
-ok(join(",", $lb->curselection), "4,5");
+is_deeply([$lb->curselection], [4, 5]);
 
 $lb->delete(qw/0 end/);
 $lb->insert(qw/0 a b c d e f/);
 $lb->selection(qw/clear 0 end/);
 $lb->selection(qw/set end 30/);
-ok(join(",", $lb->curselection), 5);
-ok(scalar @{[ $lb->curselection ]}, 1);
+is(join(",", $lb->curselection), 5);
+is(scalar @{[ $lb->curselection ]}, 1);
 
 $lb->delete(qw/0 end/);
 $lb->insert(qw/0 a b c d e f/);
 $lb->selection(qw/clear 0 end/);
 $lb->selection(qw/set 20 25/);
-ok($lb->curselection, ());
+is($lb->curselection, undef);
 
 $lb->delete(qw/0 end/);
 $lb->insert(qw/0 a b c/, "two words", qw/ e f g h i \ k l m n o p/);
 $lb->selection(qw/set 2 4/);
 $lb->selection(qw/set 9/);
 $lb->selection(qw/set 11 12/);
-ok($mw->SelectionGet, "c\ntwo words\ne\n\\\nl\nm");
+is($mw->SelectionGet, "c\ntwo words\ne\n\\\nl\nm");
 
 $lb->delete(qw/0 end/);
 $lb->insert(qw/0 a b c/, "two words", qw/ e f g h i \ k l m n o p/);
 $lb->selection(qw/set 3/);
-ok($mw->SelectionGet, "two words");
+is($mw->SelectionGet, "two words");
 
 my $long = "This is quite a long string\n" x 11;
 $lb->delete(qw/0 end/);
 $lb->insert(0, "1$long", "2$long", "3$long", "4$long", "5$long");
 $lb->selection(qw/set 0 end/);
-ok($mw->SelectionGet, "1$long\n2$long\n3$long\n4$long\n5$long");
+is($mw->SelectionGet, "1$long\n2$long\n3$long\n4$long\n5$long");
 
 $lb->delete(qw/0 end/);
 $lb->insert(qw/0 a b c d e/);
@@ -1751,7 +1842,7 @@ $e = $mw->Entry;
 $e->insert(0, "This is some text");
 $e->selection(qw/from 0/);
 $e->selection(qw/to 5/);
-ok($lb->curselection, ());
+is($lb->curselection, undef);
 
 $lb->delete(qw/0 end/);
 $lb->insert(qw/0 a b c d e/);
@@ -1762,7 +1853,7 @@ $e = $top->Entry;
 $e->insert(0, "This is some text");
 $e->selection(qw/from 0/);
 $e->selection(qw/to 5/);
-ok(join(" ", $lb->curselection), "0 1 2 3 4");
+is_deeply([$lb->curselection], [qw(0 1 2 3 4)]);
 
 $lb->destroy;
 $lb = $mw->$Listbox(-font => $fixed, -width => 10, -height => 5);
@@ -1777,18 +1868,18 @@ $lb->insert(qw/end d e f g h/);
 $lb->update;
 $lb->delete(qw/0 end/);
 $lb->update;
-ok($log[0], "y 0 1");
-ok_float($log[1], "y 0 0.625");
-ok($log[2], "y 0 1");
+is($log[0], "y 0 1");
+is_float($log[1], "y 0 0.625");
+is($log[2], "y 0 1");
 
 mkPartial();
 $partial_lb->configure(-yscrollcommand => ["record", "y"]);
 @log = ();
 $partial_lb->yview(3);
 $partial_lb->update;
-ok($log[0], qr/^y 0\.2(0000+\d+)? 0\.\d+/);
+like($log[0], qr/^y 0\.2(0000+\d+)? 0\.\d+/);
 
-@x = ();
+my @x = ();
 
 sub Tk::Error {
     push @x, @_;
@@ -1798,7 +1889,7 @@ sub Tk::Error {
 $lb->configure(qw/-yscrollcommand gorp/);
 $lb->insert(qw/0 foo/);
 $lb->update;
-ok("@x" ,qr/Undefined subroutine &main::gorp called.*vertical scrolling command executed by listbox/s, "x is @x");
+like("@x" ,qr/Undefined subroutine &main::gorp called.*vertical scrolling command executed by listbox/s);
 
 $lb->destroy;
 $lb = $mw->$Listbox(-font => $fixed, qw/-width 10 -height 5/)->pack;
@@ -1812,82 +1903,89 @@ $lb->insert(qw/0/, "This is a much longer string...");
 $lb->update;
 $lb->delete(qw/0 end/);
 $lb->update;
-ok($log[0], "x 0 1");
-ok($log[1] ,qr/^x 0 0\.32258/, "expected: x 0 0.32258 in $log[1]");
-ok($log[2], "x 0 1");
+is($log[0], "x 0 1");
+like($log[1] ,qr/^x 0 0\.32258/);
+is($log[2], "x 0 1");
 
 @x = ();
 $lb->configure(qw/-xscrollcommand bogus/);
 $lb->insert(qw/0 foo/);
 $lb->update;
-ok("@x" ,qr/Undefined subroutine &main::bogus.*horizontal scrolling command executed by listbox/s, "x is @x");
+like("@x" ,qr/Undefined subroutine &main::bogus.*horizontal scrolling command executed by listbox/s);
 
 foreach ($mw->children) { $_->destroy }
 
-## XXX not yet
-#  # tests for ListboxListVarProc
-#  test listbox-21.1 {ListboxListVarProc} {
-#      catch {destroy $_lb}
-#      catch {unset x}
-#      listbox $_lb -listvar x
-#      set x [list a b c d]
-#      $_lb get 0 end
-#  } [list a b c d]
-#  test listbox-21.2 {ListboxListVarProc} {
-#      catch {destroy $_lb}
-#      set x [list a b c d]
-#      listbox $_lb -listvar x
-#      unset x
-#      set x
-#  } [list a b c d]
-#  test listbox-21.3 {ListboxListVarProc} {
-#      catch {destroy $_lb}
-#      set x [list a b c d]
-#      listbox $_lb -listvar x
-#      $_lb configure -listvar {}
-#      unset x
-#      info exists x
-#  } 0
-#  test listbox-21.4 {ListboxListVarProc} {
-#      catch {destroy $_lb}
-#      set x [list a b c d]
-#      listbox $_lb -listvar x
-#      lappend x e f g
-#      $_lb size
-#  } 7
-#  test listbox-21.5 {ListboxListVarProc, test selection after listvar mod} {
-#      catch {destroy $_lb}
-#      set x [list a b c d e f g]
-#      listbox $_lb -listvar x
-#      $_lb selection set end
-#      set x [list a b c d]
-#      set x [list 0 1 2 3 4 5 6]
-#      $_lb curselection
-#  } {}
-#  test listbox-21.6 {ListboxListVarProc, test selection after listvar mod} {
-#      catch {destroy $_lb}
-#      set x [list a b c d]
-#      listbox $_lb -listvar x
-#      $_lb selection set 3
-#      lappend x e f g
-#      $_lb curselection
-#  } 3
-#  test listbox-21.7 {ListboxListVarProc, test selection after listvar mod} {
-#      catch {destroy $_lb}
-#      set x [list a b c d]
-#      listbox $_lb -listvar x
-#      $_lb selection set 0
-#      set x [linsert $x 0 1 2 3 4]
-#      $_lb curselection
-#  } 0
-#  test listbox-21.8 {ListboxListVarProc, test selection after listvar mod} {
-#      catch {destroy $_lb}
-#      set x [list a b c d]
-#      listbox $_lb -listvar x
-#      $_lb selection set 2
-#      set x [list a b c]
-#      $_lb curselection
-#  } 2
+SKIP: {
+    skip("no -listvar in older Tks", 12)
+	if !$listvar_impl;
+
+    {
+	my @x;
+	my $lb = $mw->$Listbox(-listvar => \@x);
+	@x = qw(a b c d);
+	is_deeply([$lb->get(0, "end")], [qw(a b c d)],
+		  "ListboxListVarProc");
+	$lb->destroy;
+    }
+
+    {
+	my @x;
+	@x = qw(a b c d);
+	my $lb = $mw->$Listbox(-listvar => \@x);
+	$lb->configure(-listvar => undef);
+	@x = ();
+	is_deeply(\@x, []);
+	$lb->destroy;
+    }
+
+    {
+	my @x = qw(a b c d);
+	my $lb = $mw->$Listbox(-listvar => \@x);
+	push @x, qw(e f g);
+	is(scalar(@x), 7);
+	$lb->destroy;
+    }
+
+    {
+	my @x = qw(a b c d e f g);
+	my $lb = $mw->$Listbox(-listvar => \@x);
+	$lb->selection(qw(set end));
+	@x = qw(a b c d);
+	@x = (0..6);
+	is($lb->curselection, undef,
+	   q{ListboxListVarProc, test selection after listvar mod});
+	$lb->destroy;
+    }
+
+    {
+	my @x = qw(a b c d);
+	my $lb = $mw->$Listbox(-listvar => \@x);
+	$lb->selection(qw(set 3));
+	push @x, qw(e f g);
+	is_deeply([$lb->curselection], [3]);
+	$lb->destroy;
+    }
+
+    {
+	my @x = qw(a b c d);
+	my $lb = $mw->$Listbox(-listvar => \@x);
+	$lb->selection(qw(set 0));
+	splice @x, 0, 0, (1, 2, 3, 4); # not sure if this is the correct linsert translation
+	is_deeply([$lb->curselection], [0]);
+	$lb->destroy;
+    }
+
+    {
+	local $TODO = "Not yet implemented in Perl/Tk";
+
+	my @x = qw(a b c d);
+	my $lb = $mw->$Listbox(-listvar => \@x);
+	$lb->selection(qw(set 2));
+	@x = qw(a b c);
+	is_deeply([$lb->curselection], [2]);
+	$lb->destroy;
+    }
+
 #  test listbox-21.9 {ListboxListVarProc, test hscrollbar after listvar mod} {
 #      catch {destroy $_lb}
 #      catch {unset x}
@@ -1989,6 +2087,7 @@ foreach ($mw->children) { $_->destroy }
 #      lappend result [$_lb yview]
 #      set result
 #  } [list {0.5 1} {0 1}]
+}
 
 # UpdateHScrollbar
 
@@ -1999,132 +2098,179 @@ $lb->insert("end", "0000000000");
 $mw->update;
 $lb->insert("end", "00000000000000000000");
 $mw->update;
-ok($log[0], "x 0 1");
-ok($log[1], "x 0 1");
-ok($log[2], "x 0 0.5");
+is($log[0], "x 0 1");
+is($log[1], "x 0 1");
+is($log[2], "x 0 0.5");
 
-## no itemconfigure in Tk800.x
-#  # ConfigureListboxItem
-#  test listbox-23.1 {ConfigureListboxItem} {
-#      catch {destroy $_lb}
-#      listbox $_lb
-#      catch {$_lb itemconfigure 0} result
-#      set result
-#  } {item number "0" out of range}
-#  test listbox-23.2 {ConfigureListboxItem} {
-#      catch {destroy $_lb}
-#      listbox $_lb
-#      $_lb insert end a b c d
-#      $_lb itemconfigure 0
-#  } [list {-background background Background {} {}} \
-#  	{-bg -background} \
-#  	{-fg -foreground} \
-#  	{-foreground foreground Foreground {} {}} \
-#  	{-selectbackground selectBackground Foreground {} {}} \
-#  	{-selectforeground selectForeground Background {} {}}]
-#  test listbox-23.3 {ConfigureListboxItem, itemco shortcut} {
-#      catch {destroy $_lb}
-#      listbox $_lb
-#      $_lb insert end a b c d
-#      $_lb itemco 0 -background
-#  } {-background background Background {} {}}
-#  test listbox-23.4 {ConfigureListboxItem, wrong num args} {
-#      catch {destroy $_lb}
-#      listbox $_lb
-#      $_lb insert end a
-#      catch {$_lb itemco} result
-#      set result
-#  } {wrong # args: should be "$_lb itemconfigure index ?option? ?value? ?option value ...?"}
-#  test listbox-23.5 {ConfigureListboxItem, multiple calls} {
-#      catch {destroy $_lb}
-#      listbox $_lb
-#      set i 0
-#      foreach color {red orange yellow green blue darkblue violet} {
-#  	$_lb insert end $color
-#  	$_lb itemconfigure $i -bg $color
-#  	incr i
-#      }
-#      pack $_lb
-#      update
-#      list [$_lb itemcget 0 -bg] [$_lb itemcget 1 -bg] [$_lb itemcget 2 -bg] \
-#  	    [$_lb itemcget 3 -bg] [$_lb itemcget 4 -bg] [$_lb itemcget 5 -bg] \
-#  	    [$_lb itemcget 6 -bg]
-#  } {red orange yellow green blue darkblue violet}
-#  catch {destroy $_lb}
-#  listbox $_lb
-#  $_lb insert end a b c d
-#  set i 6
-#  #      {-background #ff0000 #ff0000 non-existent
-#  #  	    {unknown color name "non-existent"}}
-#  #      {-bg #ff0000 #ff0000 non-existent {unknown color name "non-existent"}}
-#  #      {-fg #110022 #110022 bogus {unknown color name "bogus"}}
-#  #      {-foreground #110022 #110022 bogus {unknown color name "bogus"}}
-#  #      {-selectbackground #110022 #110022 bogus {unknown color name "bogus"}}
-#  #      {-selectforeground #654321 #654321 bogus {unknown color name "bogus"}}
-#  #XXX
-#  foreach test { A } {
-#      set name [lindex $test 0]
-#      test listbox-23.$i {configuration options} {
-#  	$_lb itemconfigure 0 $name [lindex $test 1]
-#  	list [lindex [$_lb itemconfigure 0 $name] 4] [$_lb itemcget 0 $name]
-#      } [list [lindex $test 2] [lindex $test 2]]
-#      incr i
-#      if {[lindex $test 3] != ""} {
-#  	test listbox-1.$i {configuration options} {
-#  	    list [catch {$_lb configure $name [lindex $test 3]} msg] $msg
-#  	} [list 1 [lindex $test 4]]
-#      }
-#      $_lb configure $name [lindex [$_lb configure $name] 3]
-#      incr i
-#  }
+SKIP: {
+    skip("no itemconfigure in Tk800.x", 35)
+	if $Tk::VERSION < 804;
 
-#  # ListboxWidgetObjCmd, itemcget
-#  test listbox-24.1 {itemcget} {
-#      catch {destroy $_lb}
-#      listbox $_lb
-#      $_lb insert end a b c d
-#      $_lb itemcget 0 -fg
-#  } {}
-#  test listbox-24.2 {itemcget} {
-#      catch {destroy $_lb}
-#      listbox $_lb
-#      $_lb insert end a b c d
-#      $_lb itemconfigure 0 -fg red
-#      $_lb itemcget 0 -fg
-#  } red
-#  test listbox-24.3 {itemcget} {
-#      catch {destroy $_lb}
-#      listbox $_lb
-#      $_lb insert end a b c d
-#      catch {$_lb itemcget 0} result
-#      set result
-#  } {wrong # args: should be "$_lb itemcget index option"}
-#  test listbox-24.3 {itemcget, itemcg shortcut} {
-#      catch {destroy $_lb}
-#      listbox $_lb
-#      $_lb insert end a b c d
-#      catch {$_lb itemcg 0} result
-#      set result
-#  } {wrong # args: should be "$_lb itemcget index option"}
+    {
+	my $lb = $mw->$Listbox;
+	eval { $lb->itemconfigure(0) };
+	like($@, qr{item number "0" out of range},
+	     "ConfigureListboxItem error");
+	$lb->destroy;
+    }
 
-#  # General item configuration issues
-#  test listbox-25.1 {listbox item configurations and widget based deletions} {
-#      catch {destroy $_lb}
-#      listbox $_lb
-#      $_lb insert end a
-#      $_lb itemconfigure 0 -fg red
-#      $_lb delete 0 end
-#      $_lb insert end a
-#      $_lb itemcget 0 -fg
-#  } {}
-#  test listbox-25.2 {listbox item configurations and widget based inserts} {
-#      catch {destroy $_lb}
-#      listbox $_lb
-#      $_lb insert end a b c
-#      $_lb itemconfigure 0 -fg red
-#      $_lb insert 0 1 2 3 4
-#      list [$_lb itemcget 0 -fg] [$_lb itemcget 4 -fg]
-#  } [list {} red]
+    {
+	my $lb = $mw->$Listbox;
+	$lb->insert(qw(end a b c d));
+	is_deeply([$lb->itemconfigure(0)],
+		  [[qw(-background background Background), undef, undef],
+		   [qw(-bg -background)],
+		   [qw(-fg -foreground)],
+		   [qw(-foreground foreground Foreground), undef, undef],
+		   [qw(-selectbackground selectBackground Foreground), undef, undef],
+		   [qw(-selectforeground selectForeground Background), undef, undef],
+		  ], "itemconfigure options");
+	$lb->destroy;
+    }
+
+    {
+	my $lb = $mw->$Listbox;
+	$lb->insert(qw(end a b c d));
+	is_deeply([$lb->itemconfigure(0, -background)],[qw(-background background Background),undef,undef],
+		  "itemconfigure with just one option"
+		 );
+	$lb->destroy;
+    }
+
+    {
+	my $lb = $mw->$Listbox(Name => "lb");
+	$lb->insert(qw(end a));
+	eval { $lb->itemconfigure };
+	like($@, qr{\Qwrong # args: should be ".lb itemconfigure index ?option? ?value? ?option value ...?"},
+	     q{ConfigureListboxItem, wrong num args});
+	$lb->destroy;
+    }
+
+    {
+	my $lb = $mw->$Listbox(Name => "lb");
+	my $i = 0;
+	my @colors = qw(red orange yellow green blue darkblue violet);
+	for my $color (@colors) {
+	    $lb->insert(end => $color);
+	    $lb->itemconfigure($i, -bg => $color);
+	    $i++;
+	}
+	$lb->pack;
+	$lb->update;
+	for my $i (0 .. 6) {
+	    is($lb->itemcget($i, -bg), $colors[$i],
+	       q{ConfigureListboxItem, multiple calls, } . $colors[$i]);
+	}
+	$lb->destroy;
+    }
+
+    {
+	my $lb = $mw->$Listbox;
+	$lb->insert(qw(end a b c d));
+
+	no warnings 'qw';
+
+	foreach my $test
+	    (
+	     [qw(-background #ff0000 #ff0000 non-existent),
+	      qr{unknown color name "non-existent"}],
+	     [qw(-bg #ff0000 #ff0000 non-existent),
+	      qr{unknown color name "non-existent"}],
+	     [qw(-fg #110022 #110022 bogus),
+	      qr{unknown color name "bogus"}],
+	     [qw(-foreground #110022 #110022 bogus),
+	      qr{unknown color name "bogus"}],
+	     [qw(-selectbackground #110022 #110022 bogus),
+	      qr{unknown color name "bogus"}],
+	     [qw(-selectforeground #654321 #654321 bogus),
+	      qr{unknown color name "bogus"}],
+	    ) {
+		my($name, $set_val, $get_val, $err_val, $err_msg) = @$test;
+		$lb->itemconfigure(0, $name, $set_val);
+		is($lb->itemcget(0, $name), $get_val, "itemconfigure $name");
+		eval { $lb->itemconfigure(0, $name, $err_val) };
+		like($@, $err_msg, "itemconfigure $name error ");
+		is($lb->itemcget(0, $name), $get_val, "still same value after error");
+	    }
+	$lb->destroy;
+    }
+
+    {
+	my $lb = $mw->$Listbox;
+	$lb->insert(qw(end a b c d));
+	is($lb->itemcget(0, -fg), undef, "itemcget with undef value");
+	$lb->destroy;
+    }
+
+    {
+	my $lb = $mw->$Listbox;
+	$lb->insert(qw(end a b c d));
+	$lb->itemconfigure(0, -fg => "red");
+	is($lb->itemcget(0, -fg), "red");
+	$lb->destroy;
+    }
+
+    {
+	my $lb = $mw->$Listbox(Name => "lb");
+	$lb->insert(qw(end a b c d));
+	eval { $lb->itemcget(0) };
+	like($@, qr{\Qwrong # args: should be ".lb itemcget index option"},
+	     "itemcget error");
+	$lb->destroy;
+    }
+
+    # No shortcuts in Perl/Tk, skipping shortcut test
+
+    # General item configuration issues
+    {
+	my $lb = $mw->$Listbox(Name => "lb");
+	$lb->insert(qw(end a));
+	$lb->itemconfigure(0, -fg => "red");
+	$lb->delete(0, "end");
+	$lb->insert("end", "a");
+	is($lb->itemcget(0, -fg), undef,
+	   q{listbox item configurations and widget based deletions});
+	$lb->destroy;
+    }
+
+    {
+	my $lb = $mw->$Listbox(Name => "lb");
+	$lb->insert(end => a => b => "c");
+	$lb->itemconfigure(0 => -fg => "red");
+	$lb->insert(0, 1, 2, 3, 4);
+	is($lb->itemcget(0, -fg), undef,
+	   q{listbox item configurations and widget based inserts});
+	is($lb->itemcget(4, -fg), "red");
+	$lb->destroy;
+    }
+}
+
+# Additional visual itemconfigure tests
+if ($visual) {
+    skip("no itemconfigure in Tk800.x", 1) # XXX correct!
+	if $Tk::VERSION < 804;
+
+    my $lb = $mw->$Listbox->pack;
+    my $next;
+    my $b = $mw->Button(-text => "Next",
+			-command => sub { $next++ })->pack;
+    $lb->insert("end", 1..10);
+    $lb->itemconfigure(0, -background => "red");
+    $lb->waitVariable(\$next);
+    $lb->itemconfigure(1, -background => "green");
+    $lb->waitVariable(\$next);
+    $lb->itemconfigure(0, -foreground => "white");
+    $lb->waitVariable(\$next);
+    $lb->itemconfigure(1, -foreground => "red");
+    $lb->waitVariable(\$next);
+    $lb->selectionSet(2,3);
+    $lb->waitVariable(\$next);
+    $lb->itemconfigure(2, -selectforeground => "cyan");
+    $lb->waitVariable(\$next);
+    $lb->itemconfigure(3, -selectbackground => "orange");
+    $lb->waitVariable(\$next);
+    $lb->destroy;
+}
 
 resetGridInfo();
 

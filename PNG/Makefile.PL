@@ -36,14 +36,14 @@ else
     chmod(0666,$file);
     unlink($file);
    }
-  unless (copy("libpng/Makefile.maybe","libpng/Makefile.PL"))
+  unless (copy("Makefile.libpng.maybe","libpng/Makefile.PL"))
    {
-    warn "Cannot copy libpng/Makefile.maybe => libpng/Makefile.PL ($!)";
+    warn "Cannot copy Makefile.libpng.maybe => libpng/Makefile.PL ($!)";
     $ok = 0;
    }
-  unless (copy("zlib/Makefile.maybe","zlib/Makefile.PL"))
+  unless (copy("Makefile.zlib.maybe","zlib/Makefile.PL"))
    {
-    warn "Cannot copy zlib/Makefile.maybe => zlib/Makefile.PL ($!)";
+    warn "Cannot copy Makefile.zlib.maybe => zlib/Makefile.PL ($!)";
     $ok = 0;
    }
   if ($ok)
@@ -77,10 +77,28 @@ else
     }
  }
 
+sub MY::test_via_harness
+{
+ my($self, $perl, $tests) = @_;
+ qq{\t$perl "-I../t" "-MTkTest" "-MExtUtils::Command::MM" }.
+ qq{"-e" "check_display_harness; test_harness(\$(TEST_VERBOSE), '\$(INST_LIB)', '\$(INST_ARCHLIB)')" $tests\n};
+}
+
 package MY;
 
 sub pasthru {
-  qq[PASTHRU="CC=$Config::Config{cc} $Config::Config{cccdlflags}" RANLIB=\"$Config::Config{ranlib}\"];
+  if ($^O eq 'MSWin32' && $Config::Config{cc} =~ /gcc/)
+   {
+    # gcc usually has ranlib, also dmake does not understand "rem"
+    # which is default setting for $Config::Config{ranlib} under
+    # Windows, unless .USE_SHELL: is specified (see also special_targets
+    # in ExtUtils::MM_Win32)
+    qq[PASTHRU="CC=$Config::Config{cc} $Config::Config{cccdlflags}"];
+   }
+  else
+   {
+    qq[PASTHRU="CC=$Config::Config{cc} $Config::Config{cccdlflags}" RANLIB=\"$Config::Config{ranlib}\"];
+   }
 }
 
 sub postamble {

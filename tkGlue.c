@@ -722,8 +722,8 @@ ClientData clientData;
  dTHX;
  HV *hv = InterpHv(interp,1);
  AV *av = FindAv(aTHX_ interp, "Tcl_CallWhenDeleted", 1, "_When_Deleted_");
- av_push(av, newSViv((IV) proc));
- av_push(av, newSViv((IV) clientData));
+ av_push(av, newSViv(PTR2IV(proc)));
+ av_push(av, newSViv(PTR2IV(clientData)));
 }
 
 XS(XS_Tk__Interp_DESTROY)
@@ -751,8 +751,8 @@ DeleteInterp(char *cd)
     {
      SV *cd = av_pop(av);
      SV *pr = av_pop(av);
-     Tcl_InterpDeleteProc *proc = (Tcl_InterpDeleteProc *) SvIV(pr);
-     ClientData clientData = (ClientData) SvIV(cd);
+     Tcl_InterpDeleteProc *proc = INT2PTR(Tcl_InterpDeleteProc *, SvIV(pr));
+     ClientData clientData = INT2PTR(ClientData, SvIV(cd));
      (*proc) (clientData, interp);
      SvREFCNT_dec(cd);
      SvREFCNT_dec(pr);
@@ -1622,7 +1622,7 @@ EventAndKeySym *obj;
  STRLEN na;
  if (SvTAINTED(sv))
   {
-   croak("Tainted callback %_",sv);
+   croak("Tainted callback %"SVf,sv);
   }
  if (1 && interp && !sv_isa(sv,"Tk::Callback") && !sv_isa(sv,"Tk::Ev"))
   {
@@ -1646,7 +1646,7 @@ EventAndKeySym *obj;
      sv = *x;
      if (SvTAINTED(sv))
       {
-       croak("Callback slot 0 tainted %_",sv);
+       croak("Callback slot 0 tainted %"SVf,sv);
       }
      /* FIXME:
         POE would like window passed to its callback objects
@@ -1670,7 +1670,7 @@ EventAndKeySym *obj;
         {SV *arg = *x;
          if (SvTAINTED(arg))
           {
-           croak("Callback slot %d tainted %_",i,arg);
+           croak("Callback slot %d tainted %"SVf,i,arg);
           }
          if (obj && sv_isa(arg,"Tk::Ev"))
           {
@@ -1729,7 +1729,7 @@ EventAndKeySym *obj;
                default:
                 LangDumpVec("Ev",1,&arg);
                 LangDumpVec("  ",1,&what);
-                warn("Unexpected type %ld %s",SvTYPE(what),SvPV(arg,na));
+                warn("Unexpected type %d %s",SvTYPE(what),SvPV(arg,na));
                 arg = sv_mortalcopy(arg);
                 break;
               }
@@ -2148,7 +2148,7 @@ Lang_TaintCheck(char *s, int items, SV **args)
    for (i=0; i < items; i++)
     {
      if (SvTAINTED(args[i]))
-      croak("Tcl_Obj * %d to `%s' (%_) is tainted",i,s,args[i]);
+      croak("Tcl_Obj * %d to `%s' (%"SVf") is tainted",i,s,args[i]);
     }
   }
 }
@@ -2695,7 +2695,7 @@ Tcl_Interp *interp;
    MAGIC *mg = mg_find((SV *) hv, PERL_MAGIC_ext);
    if (mg)
     {
-     return (Tk_Window) SvIV(mg->mg_obj);
+     return INT2PTR(Tk_Window, SvIV(mg->mg_obj));
     }
   }
  return NULL;
@@ -3006,9 +3006,19 @@ XS(XStoFont)
      /* FIXME: would be better to use hint from info rather than fact that
         object is not hash-based */
      if (SvROK(ST(0)) && SvTYPE(SvRV(ST(0))) != SVt_PVHV)
-      items = InsertArg(mark,2,ST(0));
+      {
+       items = InsertArg(mark,2,ST(0));
+      }
+     else if (ST(2) == &PL_sv_undef)
+      {
+#if 0
+       LangDumpVec("Font undef",items,&ST(0));
+#endif
+       croak("Cannot use undef as font object");
+      }
     }
   }
+ 
  ST(0) = name;                      /* Fill in command name */
 #if 0
  LangDumpVec("Font Post",items,&ST(0));
@@ -3304,7 +3314,7 @@ Tcl_Interp *interp;
 Tk_Window tkwin;
 {
  dTHX;
- tilde_magic((SV *) InterpHv(interp,1),newSViv((IV) tkwin));
+ tilde_magic((SV *) InterpHv(interp,1),newSViv(PTR2IV(tkwin)));
 }
 
 Tcl_Command
@@ -3702,7 +3712,7 @@ CONST SV *b;
 static I32
 Perl_Value(pTHX_ IV ix, SV *sv)
 {
- Tk_TraceInfo *p = (Tk_TraceInfo *) ix;
+ Tk_TraceInfo *p = INT2PTR(Tk_TraceInfo *, ix);
  char *result;
 
  /* We are a "magic" set processor, whether we like it or not
@@ -3748,7 +3758,7 @@ TraceExitHandler(ClientData clientData)
 
 static DECL_MG_UFUNC(Perl_Trace, ix, sv)
 {
- Tk_TraceInfo *p = (Tk_TraceInfo *) ix;
+ Tk_TraceInfo *p = INT2PTR(Tk_TraceInfo *, ix);
  char *result;
 
  /* We are a "magic" set processor, whether we like it or not
@@ -3859,7 +3869,7 @@ ClientData clientData;
  Newz(666, ufp, 1, struct ufuncs);
  ufp->uf_val = Perl_Value;
  ufp->uf_set = Perl_Trace;
- ufp->uf_index = (IV) p;
+ ufp->uf_index = PTR2IV(p);
 
  mg = SvMAGIC(sv);
  mg->mg_ptr = (char *) ufp;
@@ -3923,7 +3933,7 @@ LangLibraryDir()
 static
 DECL_MG_UFUNC(LinkIntSet,ix,sv)
 {
- int *p = (int *) ix;
+ int *p = INT2PTR(int *, ix);
  (*p) = SvIV(sv);
  return 0;
 }
@@ -3931,7 +3941,7 @@ DECL_MG_UFUNC(LinkIntSet,ix,sv)
 static
 DECL_MG_UFUNC(LinkDoubleSet,ix,sv)
 {
- double *p = (double *) ix;
+ double *p = INT2PTR(double *, ix);
  (*p) = SvNV(sv);
  return 0;
 }
@@ -3946,7 +3956,7 @@ DECL_MG_UFUNC(LinkCannotSet,ix,sv)
 static
 DECL_MG_UFUNC(LinkIntVal,ix,sv)
 {
- int *p = (int *) ix;
+ int *p = INT2PTR(int *, ix);
  sv_setiv(sv,*p);
  return 0;
 }
@@ -3954,7 +3964,7 @@ DECL_MG_UFUNC(LinkIntVal,ix,sv)
 static
 DECL_MG_UFUNC(LinkDoubleVal,ix,sv)
 {
- double *p = (double *) ix;
+ double *p = INT2PTR(double *, ix);
  sv_setnv(sv,*p);
  return 0;
 }
@@ -3971,7 +3981,7 @@ int type;
  if (sv)
   {
    struct ufuncs uf;
-   uf.uf_index = (IV) addr;
+   uf.uf_index = PTR2IV(addr);
    switch(type & ~TCL_LINK_READ_ONLY)
     {
      case TCL_LINK_INT:
@@ -4053,7 +4063,7 @@ ClientData clientData;
          ((struct ufuncs *) (mg->mg_ptr))->uf_set == Perl_Trace)
       {
        struct ufuncs *uf = (struct ufuncs *) (mg->mg_ptr);
-       Tk_TraceInfo *p = (Tk_TraceInfo *) (uf->uf_index);
+       Tk_TraceInfo *p = INT2PTR(Tk_TraceInfo *, uf->uf_index);
        if (p && p->proc == tkproc && p->interp == interp &&
            p->clientData == clientData)
         {
@@ -4258,7 +4268,7 @@ LangConfigObj(Tcl_Interp *interp, Tcl_Obj **save, Tcl_Obj *obj, int type)
    case TK_OPTION_HASHVAR:
      return LangSaveVar(interp,obj,save,TK_CONFIG_HASHVAR);
    default:
-     Tcl_SprintfResult(interp,"Unexpected type %d for LangConfigObj(%_)",
+     Tcl_SprintfResult(interp,"Unexpected type %d for LangConfigObj(%"SVf")",
                        type,obj);
   }
  return TCL_ERROR;
@@ -5253,6 +5263,9 @@ Lang_catch(pTHX_ XSUBADDR_t subaddr, void *any, I32 flags,char *filename)
  CvFILE(cv) = filename;
  CvXSUB(cv) = subaddr;
  CvXSUBANY(cv).any_ptr = any;
+#ifdef CvISXSUB_on
+ CvISXSUB_on(cv); /* this is needed for perl5.9@27244 */
+#endif
  count = call_sv((SV *)cv,flags|G_EVAL);
  SPAGAIN;
  if (sp != oldSP)
@@ -5453,7 +5466,7 @@ size_t size;
     {
      croak("%s table is %u not %u",name,(*q[0])(),(unsigned) size);
     }
-   sv_setiv(FindTkVarName(name,GV_ADD|GV_ADDMULTI),(IV) table);
+   sv_setiv(FindTkVarName(name,GV_ADD|GV_ADDMULTI),PTR2IV(table));
    if (size % sizeof(fptr))
     {
      warn("%s is strange size %d",name,size);
@@ -5489,8 +5502,13 @@ _((pTHX))
  char *XEventMethods = "abcdfhkmopstvwxyABDEKNRSTWXY#";
  char buf[128];
  CV *cv;
+#if PERL_REVISION > 5 || (PERL_REVISION == 5 && PERL_VERSION >= 9)
+#define COP_WARNINGS_TYPE STRLEN*
+#else
+#define COP_WARNINGS_TYPE SV*
+#endif
 #ifdef pWARN_NONE
- SV *old_warn = PL_curcop->cop_warnings;
+ COP_WARNINGS_TYPE old_warn = PL_curcop->cop_warnings;
  PL_curcop->cop_warnings = pWARN_NONE;
 #endif
 

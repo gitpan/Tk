@@ -25,15 +25,11 @@ package Tk::TextList;
 
 use strict;
 use vars qw($VERSION);
-$VERSION = '4.005'; # $Id: //depot/Tkutf8/TextList/TextList.pm#5 $
-
-#XXXdel: use Tk::Reindex qw(Tk::ROText); #XXXdel: ReindexedROText);
+$VERSION = '4.006'; # $Id: //depot/Tkutf8/TextList/TextList.pm#5 $
 
 use base qw(Tk::Derived Tk::ReindexedROText );
 
 use Tk qw (Ev);
-
-#XXX del: use base qw(Tk::ReindexedROText);
 
 Construct Tk::Widget 'TextList';
 
@@ -125,7 +121,7 @@ sub activate
 sub bbox
 {
  my($w,$element)=@_;
- $element=$w->index($element).'.0' unless ($element=~/./);
+ $element=$w->index($element).'.0' unless ($element=~/\./);
  return $w->SUPER::bbox($element);
 }
 
@@ -235,6 +231,7 @@ sub index
 {
  my ($w,$element)=@_;
  return undef unless(defined($element));
+ $element=0 if $element<0;
  $element .= '.0' unless $element=~/\D/;
  $element = $w->SUPER::index($element);
  my($line,$col)=split(/\./,$element);

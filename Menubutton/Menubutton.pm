@@ -17,7 +17,7 @@ package Tk::Menubutton;
 require Tk;
 
 use vars qw($VERSION);
-$VERSION = '4.004'; # $Id: //depot/Tkutf8/Menubutton/Menubutton.pm#4 $
+$VERSION = '4.005'; # $Id: //depot/Tkutf8/Menubutton/Menubutton.pm#4 $
 
 use base  qw(Tk::Widget);
 
@@ -269,8 +269,11 @@ sub Post
  if ($tearoff)
   {
    $menu->focus;
-   $w->SaveGrabInfo;
-   $w->grabGlobal;
+   if ($w->viewable)
+    {
+     $w->SaveGrabInfo;
+     $w->grabGlobal;
+    }
   }
 }
 # Motion --

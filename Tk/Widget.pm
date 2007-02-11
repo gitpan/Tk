@@ -3,7 +3,7 @@
 # modify it under the same terms as Perl itself.
 package Tk::Widget;
 use vars qw($VERSION @DefaultMenuLabels);
-$VERSION = sprintf '4.%03d', q$Revision: #30 $ =~ /\D(\d+)\s*$/;
+$VERSION = '4.031'; # was: sprintf '4.%03d', q$Revision: #30 $ =~ /\D(\d+)\s*$/;
 
 require Tk;
 use AutoLoader;
@@ -888,9 +888,12 @@ sub Busy
    $g->grabRelease;
   }
  $w->update;
- eval {local $SIG{'__DIE__'};  $w->grab };
- $w->update;
- if ($sub)
+ if (Tk::Exists($w))
+  {
+   eval {local $SIG{'__DIE__'};  $w->grab };
+   $w->update;
+  }
+ if ($sub && Tk::Exists($w))
   {
    eval { $sub->() };
    my $err = $@;
@@ -1507,4 +1510,187 @@ sub pathname
  my ($w,$id) = @_;
  my $x = $w->winfo('pathname',-displayof  => oct($id));
  return $x->PathName;
+}
+
+# ::tk::UnderlineAmpersand --
+# This procedure takes some text with ampersand and returns
+# text w/o ampersand and position of the ampersand.
+# Double ampersands are converted to single ones.
+# Position returned is -1 when there is no ampersand.
+#
+sub UnderlineAmpersand
+{
+ my (undef,$text) = @_;
+ if ($text =~ m{(?<!&)&(?!&)}g)
+  {
+   my $idx = pos $text;
+   $text =~ s{(?<!&)&(?!&)}{};
+   ($text, $idx);
+  }
+ else
+  {
+   ($text, -1);
+  }
+}
+
+# ::tk::SetAmpText -- 
+# Given widget path and text with "magic ampersands",
+# sets -text and -underline options for the widget
+#
+sub SetAmpText
+{
+ my ($w,$text) = @_;
+ my ($newtext,$under) =  $w->UnderlineAmpersand($text);
+ $w->configure(-text => $newtext, -underline => $under);
+}
+
+# ::tk::AmpWidget --
+# Creates new widget, turning -text option into -text and
+# -underline options, returned by ::tk::UnderlineAmpersand.
+#
+sub AmpWidget
+{
+ my ($w,$class,%args) = @_;
+ my @options;
+ while(my($opt,$val) = each %args)
+  {
+   if ($opt eq "-text")
+    {
+     my ($newtext,$under) = $w->UnderlineAmpersand($val);
+     push @options, -text => $newtext, -underline => $under;
+    }
+   else
+    {
+     push @options, $opt, $val;
+    }
+  }
+ my $result = $w->$class(@options);
+ if ($result->can('AmpWidgetPostHook'))
+  {
+   $result->AmpWidgetPostHook;
+  }
+ return $result;
+}
+
+# ::tk::FindAltKeyTarget --
+# search recursively through the hierarchy of visible widgets
+# to find button or label which has $char as underlined character
+#
+sub FindAltKeyTarget
+{
+ my ($w,$char) = @_;
+ $char = lc $char;
+ if ($w->isa('Tk::Button') || $w->isa('Tk::Label'))
+  {
+   if ($char eq lc substr($w->cget(-text), $w->cget(-underline), 1))
+    {
+     return $w;
+    }
+   else
+    {
+     return undef;
+    }
+  }
+ else
+  {
+   for my $cw ($w->gridSlaves, $w->packSlaves, $w->placeSlaves) # Cannot handle $w->formSlaves here?
+    {
+     my $target = $cw->FindAltKeyTarget($char);
+     return $target if ($target);
+    }
+  }
+ undef;
+}
+
+# ::tk::AltKeyInDialog --
+# <Alt-Key> event handler for standard dialogs. Sends <<AltUnderlined>>
+# to button or label which has appropriate underlined character
+#
+sub AltKeyInDialog
+{
+ my ($w, $key) = @_;
+ my $target = $w->FindAltKeyTarget($key);
+ return if !$target;
+ $target->eventGenerate('<<AltUnderlined>>');
+}
+
+# ::tk::SetFocusGrab --
+#   swap out current focus and grab temporarily (for dialogs)
+# Arguments:
+#   grab	new window to grab
+#   focus	window to give focus to
+# Results:
+#   Returns nothing
+#
+sub SetFocusGrab
+{
+ my ($grab,$focus) = @_;
+ my $index = "$grab,$focus";
+ $Tk::FocusGrab{$index} ||= [];
+ my $data = $Tk::FocusGrab{$index};
+ push @$data, $grab->focusCurrent;
+ my $oldGrab = $grab->grabCurrent;
+ push @$data, $oldGrab;
+ if (Tk::Exists($oldGrab))
+  {
+   push @$data, $oldGrab->grabStatus;
+  }
+ # The "grab" command will fail if another application
+ # already holds the grab.  So catch it.
+ Tk::catch { $grab->grab };
+ if (Tk::Exists($focus))
+  {
+   $focus->focus;
+  }
+}
+
+# ::tk::RestoreFocusGrab --
+#   restore old focus and grab (for dialogs)
+# Arguments:
+#   grab	window that had taken grab
+#   focus	window that had taken focus
+#   destroy	destroy|withdraw - how to handle the old grabbed window
+# Results:
+#   Returns nothing
+#
+sub RestoreFocusGrab
+{
+ my ($grab, $focus, $destroy) = @_;
+ $destroy = 'destroy' if !$destroy;
+ my $index = "$grab,$focus";
+ my ($oldFocus, $oldGrab, $oldStatus);
+ if (exists $Tk::FocusGrab{$index})
+  {
+   ($oldFocus, $oldGrab, $oldStatus) = $Tk::FocusGrab{$index};
+   delete $Tk::FocusGrab{$index};
+  }
+ else
+  {
+   $oldGrab = "";
+  }
+
+ Tk::catch { $oldFocus->focus };
+ if (Tk::Exists($grab))
+  {
+   $grab->grabRelease;
+   if ($destroy eq "withdraw")
+    {
+     $grab->withdraw;
+    }
+   else
+    {
+     $grab->destroy;
+    }
+  }
+ if (Tk::Exists($oldGrab) && $oldGrab->ismapped)
+  {
+   if ($oldStatus eq "global")
+    {
+     $oldGrab->grabGlobal;
+    }
+   else
+    {
+     $oldGrab->grab;
+    }
+  }
 }

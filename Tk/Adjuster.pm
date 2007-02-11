@@ -1,7 +1,7 @@
 package Tk::Adjuster;
 
 use vars qw($VERSION);
-$VERSION = '4.007'; # $Id: //depot/Tkutf8/Tk/Adjuster.pm#7 $
+$VERSION = '4.008'; # $Id: //depot/Tkutf8/Tk/Adjuster.pm#7 $
 
 use base  qw(Tk::Frame);
 
@@ -165,8 +165,11 @@ sub Populate
  $w->{'sep'} = Tk::Adjuster::Item->new($w,-bd => 1, -relief => 'sunken');
  $w->{'but'} = Tk::Adjuster::Item->new($w,-bd => 1, -width => 8, -height => 8, -relief => 'raised');
 
+ # Force creation of Frame in widget's Toplevel. This makes a difference
+ # where the widget's Toplevel has Delegates('Construct') set.
  # Need to explicitly set frame width to 0 for Win32
- my $l = $w->{'lin'} = $w->toplevel->Frame(-bd => 0);
+ my $l = $w->{'lin'} = Tk::Frame->new($w->toplevel, -bd => 0);
+ # my $l = $w->{'lin'} = $w->toplevel->Frame(-bd => 0);
 
  my $cs = $w->ConfigSpecs(-widget => ['PASSIVE','widget','Widget',$w->Parent],
                  -side       => ['METHOD','side','Side','top'],
@@ -433,4 +436,3 @@ sub slave_expand_off
 
 __END__
 
-=cut #' emacs hilighting...

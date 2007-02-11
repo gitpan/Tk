@@ -5,7 +5,7 @@ package Tk::Table;
 use strict;
 
 use vars qw($VERSION);
-$VERSION = sprintf '4.%03d', q$Revision: #12 $ =~ /\D(\d+)\s*$/;
+$VERSION = '4.013'; # was: sprintf '4.%03d', q$Revision: #12 $ =~ /\D(\d+)\s*$/;
 
 use Tk::Pretty;
 use AutoLoader;
@@ -593,6 +593,4 @@ sub see
   }
  return $see;
 }
-
-=cut
 

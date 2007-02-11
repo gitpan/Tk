@@ -24,11 +24,11 @@ if (defined $Config{'gccversion'})
     $gccopt .= " -Wall -Wno-implicit-int -Wno-comment -Wno-unused -D__USE_FIXED_PROTOTYPES__";
     eval
      {
-      if ((getpwuid($<))[6] =~ /Nick\s+Ing-Simmons/)
+      if ((getpwuid($<))[6] =~ /(Nick\s+Ing-Simmons|XXXSlaven\s+Rezic)/)
        {
         # This is the author - catch as many bugs as possible
+        # libpng causes some warnings, so this is not enabled for me - srt
         $gccopt .= "  -MMD -Werror -Wno-format";
-#       @macro = ( macro => { INSTALLDIRS => 'perl' });
        }
      }
    }
@@ -42,7 +42,11 @@ if ($] >= 5.005)
        AUTHOR   => 'nick@ing-simmons.net (Nick Ing-Simmons)'
       );
   my $arch = ($^O eq 'MSWin32') ? $ENV{'PROCESSOR_ARCHITECTURE'} : $Config{'archname'};
-  push(@ARGV,"BINARY_LOCATION=$arch/Tk$VERSION-PPM.tar.gz");
+  my $binloc = "BINARY_LOCATION=$arch/Tk$VERSION-PPM.tar.gz";
+  if (!grep { $binloc eq $_ } @ARGV)
+   {
+    push(@ARGV,$binloc);
+   }
   warn "PPM for perl$]\n";
  }
 else
@@ -202,12 +206,20 @@ foreach $arg (@ARGV)
   if ($arg =~ /^(X11\w*|XFT)=(.*)$/)
    {
     ${"$1"} = $2;
+    # Pushing these args to @ARGV will generate MakeMaker warnings
+    # ("... is not a known MakeMaker parameter name") but
+    # will asure that the parameters are reused when automatically
+    # re-building Makefiles.
+   }
+  elsif ($arg eq 'VERBOSE=1')
+   {
+    $Tk::MMtry::VERBOSE = 1;
    }
   else
    {
     $MakefileName = $1 if ($arg =~ /^MAKEFILE=(.*)$/);
-    push(@args,$arg);
    }
+  push(@args,$arg);
  }
 @ARGV = @args;
 
@@ -344,21 +356,39 @@ if ($win_arch eq 'x') {
    {
     # Found basic X libraries now see if we can find -lXft
 
-    my $ftinc = Ift("/usr/include","/usr/local/include");
+    my $ftinc = Ift("/usr/include","/usr/local/include",$X11INC||());
     if ($ftinc)
      {
       print "xlib='$xlib' xinc='$xinc'\n";
-      if (try_run("config/xft.c",[$xinc,$ftinc],[$xlib,'-lXft','-lfontconfig']))
+      my $success = 0;
+      # Including ft2build.h additionally seems to be necessary
+      # on an old RedHat 8.0 system
+      for my $def ([], ["-DNEED_FT2BUILD_H"])
        {
-        $inc .= " $ftinc";
-        warn "Seem to have -lXft\n";
-        $define{USE_XFT_FONTS} = 1;
-        $xlib .= " -lXft";
-        $xtra = ' -lfontconfig';
+	if (try_run("config/xft.c",[$xinc,$ftinc],[$xlib,'-lXft','-lfontconfig'],$def))
+         {
+          $inc .= " $ftinc";
+          warn "Seem to have -lXft\n";
+          $define{USE_XFT_FONTS} = 1;
+          $xlib .= " -lXft";
+          $xtra = ' -lfontconfig';
+	  if (@$def)
+	   {
+	    for my $d (@$def)
+	     {
+	      $d =~ s{-D}{};
+	      $define{$d} = 1;
+	     }
+	   }
+	  $success = 1;
+	  last;
+         }
        }
-      else
+      if (!$success)
        {
-	warn "Xft and/or fontconfig libraries and/or includes are missing\n";
+	warn "Xft and/or fontconfig libraries and/or includes are missing" .
+	     (!$Tk::MMtry::VERBOSE ? ",\ntry perl Makefile.PL VERBOSE=1 for more information" : "") .
+	     ".\n";
        }
      }
     else
@@ -428,7 +458,7 @@ sub WriteIfChanged
 
 if (!defined($MakefileName) || $MakefileName eq 'Makefile')
  {
-  my $config = "package Tk::Config;\nrequire Exporter;\nuse base qw(Exporter);\n";
+  my $config = "# DO NOT EDIT. CREATED AUTOMATICALLY BY myConfig\npackage Tk::Config;\nrequire Exporter;\nuse base qw(Exporter);\n";
   my $sym;
   my @export = ();
   foreach $sym (qw(VERSION inc define xlib xinc gccopt win_arch))

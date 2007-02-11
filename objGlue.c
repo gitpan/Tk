@@ -584,7 +584,18 @@ Tcl_GetByteArrayFromObj(Tcl_Obj * objPtr, int * lengthPtr)
  /* FIXME: presumably should downgrade from UTF-8,
     what frees it ?
   */
- return (unsigned char *) Tcl_GetStringFromObj (objPtr, lengthPtr);
+ /* SRT: Is this correct? */
+ dTHX;
+ sv_utf8_downgrade(objPtr, 0);
+ if (lengthPtr)
+  {
+   return (unsigned char *) SvPV(objPtr, *lengthPtr);
+  }
+ else
+  {
+   return (unsigned char *) SvPV(objPtr, PL_na);
+  }
+/* return (unsigned char *) Tcl_GetStringFromObj (objPtr, lengthPtr); */
 }
 
 
@@ -844,8 +855,8 @@ Tcl_ListObjReplace (Tcl_Interp *interp, Tcl_Obj *listPtr, int first, int count,
    int i;
    if (first < 0)
     first = 0;
-   if (first > len)
-     first = len;
+   if (first >= len)
+     first = len;	/* So we'll insert after last element. */
    if (first + count > len)
     count = first-len;
    newlen = len-count+objc;
@@ -862,6 +873,11 @@ Tcl_ListObjReplace (Tcl_Interp *interp, Tcl_Obj *listPtr, int first, int count,
     }
    else if (newlen < len)
     {
+     /* Delete array elements which will be sliced away */
+     for (i=first; i < first+count; i++)
+      {
+       av_delete(av,i,0);
+      }
      /* Move entries beyond old range down to new location */
      for (i=first+count; i < len; i++)
       {
@@ -1441,7 +1457,7 @@ Tcl_ObjMagic(Tcl_Obj *obj,int add)
     {
      if (add)
       {
-       warn("Wrong kind of '~' magic on %_",obj);
+       warn("Wrong kind of '~' magic on %"SVf,obj);
        sv_dump(obj);
        abort();
       }
@@ -1587,13 +1603,28 @@ TclObjLength(Tcl_Obj *obj)
 void
 TclObjSetType(Tcl_Obj *obj,Tcl_ObjType *type)
 {
- TclObjMagic_t *m = Tcl_ObjMagic(obj,1);
+ TclObjMagic_t *m;
+ if (type != NULL && !SvOK(obj))
+  {
+   if (type)
+    {
+     croak("Cannot use undef value for object of type '%s'", type->name);
+    }
+   else
+    {
+     croak("Cannot assign magic to undef");
+    }
+  }
+ m = Tcl_ObjMagic(obj,1);
 #ifdef DEBUG_TCLOBJ
  if (m->type)
   {
    LangDebug("%s %p was %s\n",__FUNCTION__,obj,m->type->name);
   }
- LangDebug("%s %p now %s\n",__FUNCTION__,obj,type->name);
+ if (type)
+  {
+   LangDebug("%s %p now %s\n",__FUNCTION__,obj,type->name);
+  }
 #endif
  m->type = type;
 }

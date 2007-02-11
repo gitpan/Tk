@@ -2,7 +2,7 @@ package Tk::widgets;
 use Carp;
 
 use vars qw($VERSION);
-$VERSION = '4.004'; # $Id: //depot/Tkutf8/Tk/widgets.pm#4 $
+$VERSION = '4.005'; # $Id: //depot/Tkutf8/Tk/widgets.pm#4 $
 
 sub import
 {
@@ -18,4 +18,3 @@ sub import
 1;
 __END__
 
-=cut

@@ -8,7 +8,7 @@
 package Tk::BrowseEntry;
 
 use vars qw($VERSION);
-$VERSION = sprintf '4.%03d', q$Revision: #13 $ =~ /\D(\d+)\s*$/;
+$VERSION = '4.014'; # was: sprintf '4.%03d', q$Revision: #13 $ =~ /\D(\d+)\s*$/;
 
 use Tk qw(Ev);
 use Carp;
@@ -26,7 +26,17 @@ sub ListboxWidget  { "Listbox"  }
 sub Populate {
     my ($w, $args) = @_;
 
+    my %labelArgs;
+    while(my($k,$v) = each %$args) {
+	$labelArgs{$k} = $v;
+	delete $args->{$k};
+    }
+
     $w->Tk::Frame::Populate($args);
+
+    while(my($k,$v) = each %labelArgs) {
+	$args->{$k} = $v;
+    }
 
     # entry widget and arrow button
     my $lpack = delete $args->{-labelPack};
@@ -267,6 +277,7 @@ sub PopupChoices {
 	if (defined $current_sel) {
 	    my $i = 0;
 	    foreach my $str ($s->get(0, "end")) {
+		local $^W = 0; # in case of undefined strings
 		if ($str eq $current_sel) {
 		    $s->selectionClear(0, "end");
 		    $s->selectionSet($i);
@@ -376,11 +387,12 @@ sub choices
    my $old = $$var;
    foreach my $val (@$choices)
     {
+     local $^W = 0; # in case of undefined values
      $w->insert( 'end', $val);
      $hash{$val} = 1;
     }
    $old = $choices->[0]
-    if defined $old && not exists $hash{$old} && defined $choices->[0];
+    if defined $old && !exists $hash{$old} && defined $choices->[0];
    $$var = $old;
   }
  else

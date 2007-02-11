@@ -14,13 +14,16 @@
 #include "pTk/tkInt.h"
 #include "tkGlue.h"
 
+static char *Lang_Utf8ToBytes(CONST char *src);
+
 Tcl_Channel
 Tcl_OpenFileChannel(interp,fileName,modeString,permissions)
 Tcl_Interp *interp;
 CONST char *fileName;
 CONST char *modeString;
 int permissions;
-{PerlIO *f = PerlIO_open(fileName,modeString);
+{PerlIO *f = PerlIO_open(Lang_Utf8ToBytes(fileName),modeString);
+ /* Hopefully every fileName here should be translated back to octets ... */
  if (!f)
   {
    /* FIXME - use strerr() or perl's equivalent */
@@ -140,6 +143,14 @@ Tcl_SetChannelOption(Tcl_Interp *interp, Tcl_Channel chan,
  return TCL_OK;
 }
 
+char *
+Lang_Utf8ToBytes(CONST char *src)
+{
+ SV* sv = newSVpv(src,0);
+ sv_2mortal(sv);
+ sv_utf8_decode(sv);
+ return SvPVbyte_nolen(sv);
+}
 
 
 

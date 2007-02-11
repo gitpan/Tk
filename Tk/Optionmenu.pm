@@ -7,7 +7,7 @@ require Tk::Menu;
 use Carp;
 
 use vars qw($VERSION);
-$VERSION = '4.013'; # $Id: //depot/Tkutf8/Tk/Optionmenu.pm#13 $
+$VERSION = '4.014'; # $Id: //depot/Tkutf8/Tk/Optionmenu.pm#13 $
 
 use base  qw(Tk::Derived Tk::Menubutton);
 
@@ -125,6 +125,4 @@ sub options
 1;
 
 __END__
-
-=cut
 

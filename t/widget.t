@@ -1,9 +1,19 @@
 BEGIN { $|=1; $^W=1; }
 use strict;
-use Test;
+
+BEGIN {
+    if (!eval q{
+	use Test::More;
+	1;
+    }) {
+	print "1..0 # skip: no Test::More module\n";
+	exit;
+    }
+}
+
 use Tk;
 
-BEGIN { plan tests => 7 };
+BEGIN { plan tests => 13 };
 
 my $mw = Tk::MainWindow->new;
 my $w = $mw->Label(-text=>'a widget but not a Wm')->grid;
@@ -14,10 +24,10 @@ my $w = $mw->Label(-text=>'a widget but not a Wm')->grid;
 {
     my $name;
     eval { $name = $w->appname; };
-    ok($@, "", "Problem \$w->appname.");
+    is($@, "", "\$w->appname works");
     my ($leaf) = $name =~ /^(\w+)/;
-    ok( $leaf, 'widget', "Appname does not match filename" );
-    ok( $mw->name, $name, "\$mw->name is not equal to appname");
+    is( $leaf, 'widget', "Appname matches filename" );
+    is( $mw->name, $name, "\$mw->name is equal to appname");
 }
 ##
 ## scaling (missing until Tk800 until .004)
@@ -25,8 +35,8 @@ my $w = $mw->Label(-text=>'a widget but not a Wm')->grid;
 {
     my $scale;
     eval { $scale = $w->scaling; };
-    ok($@, "", "Problem \$w->scaling.");
-    ok( scalar($scale=~/^[0-9.]+$/), 1, "Scaling factor not a number: '$scale'" );
+    is($@, "", "\$w->scaling works");
+    like($scale, qr/^[0-9.]+$/, "Scaling factor is a number: '$scale'" );
 }
 ##
 ## pathname did not work until Tk800.004
@@ -35,8 +45,37 @@ my $w = $mw->Label(-text=>'a widget but not a Wm')->grid;
     my $path;
     my $c = $w->PathName;
     eval { $path = $mw->pathname($w->id); };
-    ok($@, "", "Problem \$mw->pathname.");
-    ok( $path, $c, "Pathname and pathname don't agree" );
+    is($@, "", "\$mw->pathname works");
+    is( $path, $c, "Pathname and pathname agree" );
+}
+
+##
+## Busy/Unbusy
+##
+{
+    my $oldcursor = $mw->cget(-cursor);
+    $mw->update; # make main window viewable, necessary for Busy
+    $mw->Busy;
+    is($mw->cget(-cursor), "watch", "The busy cursor");
+    $mw->after(10);
+    $mw->Unbusy;
+    is($mw->cget(-cursor), $oldcursor, "Old cursor restored");
+}
+
+##
+## Busy/Unbusy with recursion
+##
+{
+    my $oldcursor = $mw->cget(-cursor);
+    my $w2 = $mw->Label(-cursor => "cross")->grid;
+    $mw->Busy(-recurse => 1, -cursor => "watch");
+    is($mw->cget(-cursor), "watch", "The busy cursor");
+    is($w2->cget(-cursor), "watch", "Subwidget has also the busy cursor");
+    $mw->after(10);
+    $mw->Unbusy;
+    is($mw->cget(-cursor), $oldcursor, "Old cursor restored");
+    is($w2->cget(-cursor), "cross", "Oldsubwidget cursor also restored");
+    $w2->destroy;
 }
 
 1;

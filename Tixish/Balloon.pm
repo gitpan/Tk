@@ -15,7 +15,7 @@
 package Tk::Balloon;
 
 use vars qw($VERSION);
-$VERSION = sprintf '4.%03d', q$Revision: #10 $ =~ /\D(\d+)\s*$/;
+$VERSION = '4.011'; # was: sprintf '4.%03d', q$Revision: #10 $ =~ /\D(\d+)\s*$/;
 
 use Tk qw(Ev Exists);
 use Carp;
@@ -169,6 +169,13 @@ sub Motion {
 	my $client = $over;
 	while (defined $client) {
 	    last if (exists $w->{'clients'}{$client});
+	    if ($client->can("MasterMenu")) {
+		my $master = $client->MasterMenu;
+		if ($master && exists $w->{'clients'}{$master}) {
+		    $w->{'clients'}{$client} = $w->{'clients'}{$master};
+		    last;
+		}
+	    }
 	    $client = $client->Parent;
 	}
 	if (defined $client) {
@@ -255,6 +262,11 @@ sub grabBad {
     return 0 unless defined $g;
     return 0 if $g->isa('Tk::Menu');
     return 0 if $g eq $client;
+
+    # Ignore grab check if $w is the balloon itself.
+    # XXX Why is this necessary? Is it possible to remove the grabBad
+    # condition in SwitchToClient altogether?
+    return 0 if $w->isa(__PACKAGE__);
 
     # The grab is OK if $client is a decendant of $g. Use the internal Tcl/Tk
     # pathname (yes, it's cheating, but it's legal).

@@ -21,7 +21,7 @@ require Tk::Menu::Item;
 
 
 use vars qw($VERSION);
-$VERSION = sprintf '4.%03d', q$Revision: #21 $ =~ /\D(\d+)\s*$/;
+$VERSION = '4.022'; # was: sprintf '4.%03d', q$Revision: #21 $ =~ /\D(\d+)\s*$/;
 
 use strict;
 
@@ -404,8 +404,9 @@ sub Motion
 sub ButtonDown
 {
  my $menu = shift;
+ return if (!$menu->viewable);
  $menu->postcascade('active');
- if (defined $Tk::postedMb)
+ if (defined $Tk::postedMb && $Tk::postedMb->viewable)
   {
    $Tk::postedMb->grabGlobal
   }
@@ -515,8 +516,8 @@ sub Invoke
   }
  elsif ($w->typeIS('active','tearoff'))
   {
-   $w->Unpost();
    $w->tearOffMenu();
+   $w->Unpost();
   }
  elsif ($w->typeIS('active','menubar'))
   {
@@ -602,15 +603,14 @@ sub NextMenu
    my $m2 = $menu->parent;
    if ($m2->IsMenu)
     {
+     $menu->activate('none');
+     $menu->GenerateMenuSelect;
+     $m2->SetFocus;
+
+     $m2->postcascade('none');
+
      if ($m2->cget('-type') ne 'menubar')
       {
-       $menu->activate('none');
-       $menu->GenerateMenuSelect;
-       $m2->SetFocus;
-       # This code unposts any posted submenu in the parent.
-       my $tmp = $m2->index('active');
-       $m2->activate('none');
-       $m2->activate($tmp);
        return;
       }
     }
@@ -796,7 +796,7 @@ sub FirstEntry
      if ($menu->type($i) eq 'cascade')
       {
        my $cascade = $menu->entrycget($i,'-menu');
-       if (defined $cascade)
+       if (0 && defined $cascade)
         {
          $menu->postcascade($i);
          $cascade->FirstEntry;
@@ -892,10 +892,13 @@ sub Post
  my $entry = shift;
  Unpost(undef) if (defined($Tk::popup) || defined($Tk::postedMb));
  $menu->PostOverPoint($x,$y,$entry);
- $menu->grabGlobal;
- $Tk::popup = $menu;
- $Tk::focus = $menu->focusCurrent;
- $menu->focus();
+ if ($Tk::platform eq 'unix' && $menu->viewable)
+  {
+   $menu->grabGlobal;
+   $Tk::popup = $menu;
+   $Tk::focus = $menu->focusCurrent;
+   $menu->focus();
+  }
 }
 
 sub SetFocus
@@ -961,7 +964,7 @@ sub tearOffMenu
  # original: if the parent is a menu, then use the text of the active
  # entry. If it's a menubutton then use its text.
  my $title = $w->cget('-title');
- # print ref($w),' ',$w->PathName," $w\n";
+ # print ref($w),' ',$w->PathName," ",$menu->PathName," $w\n";
  unless (defined $title && length($title))
   {
    $parent = $w->parent;
@@ -979,6 +982,12 @@ sub tearOffMenu
   }
  $menu->title($title) if (defined $title && length($title));
  $menu->post($x,$y);
+
+ if (!Tk::Exists($menu))
+  {
+   return;
+  }
+
  # Set tkPriv(focus) on entry: otherwise the focus will get lost
  # after keyboard invocation of a sub-menu (it will stay on the
  # submenu).
@@ -989,6 +998,11 @@ sub tearOffMenu
  # will get saved in $Tk::focus
  # $menu->bind('<Enter>','EnterFocus');
  $menu->Callback('-tearoffcommand');
+
+ # Strangely tear-off menus do not work in tkpod and Tk804.027.
+ # Explicitely setting normal state helps here - why?
+ $menu->state("normal");
+
  return $menu;
 }
 
@@ -1136,6 +1150,48 @@ sub BalloonInfo
     }
    return $info;
   }
+}
+
+sub MasterMenu
+{
+ my ($menu) = @_;
+ my $pathname = $menu->PathName;
+ my $master_menu;
+ if ($pathname =~ m{#})
+  {
+   my $master_pathname = (split m{\.}, $pathname)[-1];
+   $master_pathname =~ s{#}{.}g;
+   $master_menu = $menu->Widget($master_pathname);
+   if (!Tk::Exists($master_menu))
+    {
+     warn "Cannot find master menu <$master_pathname>";
+    }
+  }
+ $master_menu;
+}
+
+
+# ::tk::AmpMenuArgs --
+# Processes arguments for a menu entry, turning -label option into
+# -label and -underline options, returned by ::tk::UnderlineAmpersand.
+#
+sub AmpArgs
+{
+ my ($w, $add, $type, %args) = @_;
+ my @options;
+ while(my($opt,$val) = each %args)
+  {
+   if ($opt eq "-label")
+    {
+     my ($newtext,$under) = $w->UnderlineAmpersand($val);
+     push @options, -label => $newtext, -underline => $under;
+    }
+   else
+    {
+     push @options, $opt, $val;
+    }
+  }
+ $w->$type(@options);
 }
 
 1;

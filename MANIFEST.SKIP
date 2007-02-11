@@ -34,6 +34,12 @@ myConfig\.out
 JPEG/jpeg/testout*
 JPEG/jpeg/config\.(log|status)
 JPEG/jpeg/([cd]jpeg|jpegtran|(rd|wr)jpgcom)
+JPEG/jpeg/Makefile\.PL$
+PNG/libpng/Makefile\.PL$
+PNG/libpng/pngtest$
+PNG/zlib/example$
+PNG/zlib/Makefile\.PL$
+PNG/zlib/minigzip$
 \.todo$
 \bswapm$
 bin/patchls$
@@ -74,7 +80,6 @@ pTk/default\.h$
 pTk/exWinHandle\.c$
 pTk/img\.h$
 pTk/imgBMP\.c$
-pTk/imgGIF\.c$
 pTk/imgInit\.c$
 pTk/imgInt\.h$
 pTk/imgObj\.c$
@@ -207,6 +212,7 @@ pTk/tkGrab\.c$
 pTk/tkGrid\.c$
 pTk/tkImage\.c$
 pTk/tkImgBmap\.c$
+pTk/tkImgGIF\.c$
 pTk/tkImgPPM\.c$
 pTk/tkImgPhoto\.c$
 pTk/tkImgUtil\.c$

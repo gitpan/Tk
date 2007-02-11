@@ -14,7 +14,7 @@ use strict qw(vars);
 
 
 use vars qw($VERSION);
-$VERSION = sprintf '4.%03d', q$Revision: #14 $ =~ /\D(\d+)\s*$/;
+$VERSION = '4.015'; # was: sprintf '4.%03d', q$Revision: #14 $ =~ /\D(\d+)\s*$/;
 
 use Tk::Submethods;
 
@@ -23,9 +23,9 @@ use Tk::Submethods;
 
 Direct Tk::Submethods ('wm' => [qw(aspect attributes client colormapwindows command
                        deiconify focusmodel frame geometry group
-                       iconbitmap iconify iconimage iconmask iconname
+                       iconbitmap iconify iconimage iconmask iconname iconphoto
                        iconwindow maxsize minsize overrideredirect positionfrom
-                       protocol resizable sizefrom state title transient
+                       protocol resizable sizefrom stackorder state title transient
                        withdraw wrapper)]);
 		
 sub SetBindtags

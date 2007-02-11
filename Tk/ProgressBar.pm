@@ -1,7 +1,7 @@
 package Tk::ProgressBar;
 
 use vars qw($VERSION);
-$VERSION = sprintf '4.%03d', q$Revision: #10 $ =~ /\D(\d+)\s*$/;
+$VERSION = '4.011'; # was: sprintf '4.%03d', q$Revision: #10 $ =~ /\D(\d+)\s*$/;
 
 use Tk;
 use Tk::Canvas;
@@ -132,7 +132,7 @@ sub _arrange {
 	my $colors = $c->{Configure}{'-colors'} || [];
 	my $bdir = $from < $to ? $dir : 0 - $dir;
 
-	$c->delete($c->find('all'));
+	$c->delete('all');
 
 	$c->createRectangle(0,0,$w+$x*2,$h+$y*2,
 		-fill =>  $c->{Configure}{'-troughcolor'},

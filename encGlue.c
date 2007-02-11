@@ -71,6 +71,14 @@ Tcl_UniCharIsAlpha(int ch)
 }
 
 int
+Tcl_UniCharIsWordChar(int ch)
+{
+ dTHX;
+ /* FIXME XXX what about CONNECTOR_BITS like in th Tcl original? */
+ return Perl_is_uni_alpha(aTHX_ ch) || Perl_is_uni_digit(aTHX_ ch);
+}
+
+int
 Tcl_UniCharIsSpace(int ch)
 {
  dTHX;
@@ -606,7 +614,7 @@ Tcl_GetEncoding (Tcl_Interp * interp, CONST char * name)
  else
   {
    if (SvOK(sv))
-    warn("Strange encoding %_",sv);
+    warn("Strange encoding %"SVf,sv);
   }
  return NULL;
 }
@@ -735,19 +743,26 @@ CallEncode(Tcl_Interp * interp,
       }
      else
       {
-       warn("%_",ERRSV);
+       warn("%"SVf,ERRSV);
       }
      break;
     }
    SPAGAIN;
    dtmp = POPs;
    PUTBACK;
+#if 0
+   /* XXX This code seems to be wrong since Encode 2.10, when LEAVE_SRC was
+    * default (is this true?).
+    * This would fix the "selection conversion left too many bytes unconverted"
+    * aborts.
+    */
    if (SvCUR(stmp))
     {
      /* This could also be TCL_CONVERT_MULTIBYTE - how do we tell ? */
      code = TCL_CONVERT_UNKNOWN;
      break;
     }
+#endif
    td = SvPV(dtmp,dbytes);
    if (!dbytes)
     {
@@ -909,8 +924,6 @@ Tcl_ExternalToUtfDString(Tcl_Encoding encoding, CONST char * src,
  LEAVE;
  return Tcl_DStringValue(dsPtr);
 }
-
-
 
 #if defined(WIN32) || (defined(__WIN32__) && defined(__CYGWIN__))
 /*

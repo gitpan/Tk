@@ -6,7 +6,7 @@ package Tk::Tree;
 # Chris Dean <ctdean@cogit.com>
 
 use vars qw($VERSION);
-$VERSION = '4.005'; # $Id: //depot/Tkutf8/Tixish/Tree.pm#5 $
+$VERSION = '4.006'; # $Id: //depot/Tkutf8/Tixish/Tree.pm#5 $
 
 use Tk ();
 use Tk::Derived;
@@ -225,4 +225,3 @@ __END__
 #  The license terms of the Tcl/Tk distrobution are in the file
 #  license.tcl.
 
-=cut

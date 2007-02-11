@@ -25,7 +25,7 @@ else
  {
   push(@args, MYEXTLIB  => "jpeg/libjpeg$l",
               'INC'     => '-Ijpeg');
-  copy("jpeg/Makefile.maybe","jpeg/Makefile.PL");
+  copy("Makefile.jpeg.maybe","jpeg/Makefile.PL");
   warn "Building jpeg/libjpeg$l\n";
  }
 
@@ -42,6 +42,13 @@ Tk::MMutil::TkExtMakefile(@args,
     'clean'        => { FILES => 'jpeg/Makefile jpeg/Makefile.PL jpeg/config.status jpeg/jconfig.h' }
 
    );
+
+sub MY::test_via_harness
+{
+ my($self, $perl, $tests) = @_;
+ qq{\t$perl "-I../t" "-MTkTest" "-MExtUtils::Command::MM" }.
+ qq{"-e" "check_display_harness; test_harness(\$(TEST_VERBOSE), '\$(INST_LIB)', '\$(INST_ARCHLIB)')" $tests\n};
+}
 
 package MY;
 
