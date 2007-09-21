@@ -1,7 +1,7 @@
 package Tk::HList;
 
 use vars qw($VERSION);
-$VERSION = sprintf '4.%03d', q$Revision: #14 $ =~ /\D(\d+)\s*$/;
+$VERSION = '4.015'; # was: sprintf '4.%03d', q$Revision: #14 $ =~ /\D(\d+)\s*$/;
 
 use Tk qw(Ev $XS_VERSION);
 
@@ -38,9 +38,10 @@ use Tk::Submethods ( 'delete'    => [qw(all entry offsprings siblings)],
                      'selection' => [qw(clear get includes set)],
                      'anchor'    => [qw(clear set)],
                      'column'    => [qw(width)],
-                     'hide'      => [qw(entry)],
                    );
 
+# This is undocumented, but worked until 804.027:
+sub hideEntry { shift->hide('entry', @_) }
 
 sub ClassInit
 {
@@ -429,7 +430,7 @@ sub UpDown
 
  unless( defined $anchor )
   {
-   $anchor = ($w->info('children'))[0] || '';
+   $anchor = ($w->info('children'))[0];
 
    return unless (defined($anchor) and length($anchor));
 
@@ -530,7 +531,11 @@ sub LeftRight
 
  unless(defined $anchor)
   {
-   $anchor = ($w->info('children'))[0] || '';
+   $anchor = ($w->info('children'))[0]
+  }
+ unless(defined $anchor)
+  {
+   $anchor = '';
   }
 
  my $done = 0;

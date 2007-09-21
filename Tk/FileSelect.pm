@@ -1,7 +1,7 @@
 package Tk::FileSelect;
 
 use vars qw($VERSION @EXPORT_OK);
-$VERSION = '4.016'; # was: sprintf '4.%03d', q$Revision: #15 $ =~ /\D(\d+)\s*$/;
+$VERSION = '4.017'; # was: sprintf '4.%03d', q$Revision: #15 $ =~ /\D(\d+)\s*$/;
 @EXPORT_OK = qw(glob_to_re);
 
 use Tk qw(Ev);
@@ -148,6 +148,7 @@ sub Accept {
 sub Accept_dir
 {
  my ($cw,$new) = @_;
+ return if !defined $new;
  my $dir  = $cw->cget('-directory');
  $cw->configure(-directory => "$dir/$new");
 }

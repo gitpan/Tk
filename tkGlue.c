@@ -5218,7 +5218,11 @@ int flags;
 
 struct WrappedRegExp
 {
+#if HAS_PMOP_EXTRA_FLAGS
  PMOP   op;
+#else
+ U32 flags;
+#endif
  regexp *pat;
  SV    *source;
 };
@@ -5242,13 +5246,22 @@ do_comp(pTHX_ CV *cv)
  dMARK;
  dAX;
  struct WrappedRegExp *p = (struct WrappedRegExp *) CvXSUBANY(cv).any_ptr;
+#if USE_PREGCOMP_31027
+ p->pat = pregcomp(p->source,p->flags);
+#else /* USE_PREGCOMP_31027 */
  int len = 0;
  char *string = Tcl_GetStringFromObj(p->source,&len);
+
+#if HAS_PMOP_EXTRA_FLAGS
  p->op.op_pmdynflags |= PMdf_DYN_UTF8;
  p->pat = pregcomp(string,string+len,&p->op);
+#else
+ p->pat = pregcomp(string,string+len,p->flags);
+#endif
 #if 0
  LangDebug("/%.*s/ => %p\n",len,string,p->pat);
 #endif
+#endif /* USE_PREGCOMP_31027 */
  XSRETURN(0);
 }
 
@@ -5295,12 +5308,16 @@ Tcl_GetRegExpFromObj(Tcl_Interp *interp, Tcl_Obj *obj, int flags)
 	    mg = mg_find(sv, PERL_MAGIC_qr);
  }
 
+#if HAS_PMOP_EXTRA_FLAGS
  /* Could do more conversions here
     Not sure how/if to override case-ness of qr// pattern
   */
  if (flags & TCL_REG_NOCASE) {
    re->op.op_pmflags |= PMf_FOLD;
  }
+#else
+ re->flags = RXf_UTF8 | (flags & TCL_REG_NOCASE ? RXf_PMf_FOLD : 0);
+#endif
 
  if (mg)
   {
@@ -5370,11 +5387,19 @@ CONST84 char **startPtr;
 CONST84 char **endPtr;
 {
  regexp *re = wrap->pat;
+#if USE_NEWSTYLE_REGEXP_STRUCT
+ if (re->offs[index].start != -1 && re->offs[index].end != -1)
+  {
+   *startPtr = re->subbeg+re->offs[index].start;
+   *endPtr   = re->subbeg+re->offs[index].end;
+  }
+#else
  if (re->startp[index] != -1 && re->endp[index] != -1)
   {
    *startPtr = re->subbeg+re->startp[index];
    *endPtr   = re->subbeg+re->endp[index];
   }
+#endif
  else
   {
    *startPtr = NULL;

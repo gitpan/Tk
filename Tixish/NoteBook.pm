@@ -10,7 +10,7 @@ package Tk::NoteBook;
 use vars qw($VERSION);
 
 #$VERSION = sprintf '4.%03d', q$Revision: #9 $ =~ /\D(\d+)\s*$/;
-$VERSION = '4.010';
+$VERSION = '4.011';
 require Tk::NBFrame;
 
 use base  qw(Tk::Derived Tk::NBFrame);
@@ -391,8 +391,8 @@ sub Resize {
 
     if ($reqW * $reqH == 0)
      {
-	if ((not defined $w->{-dynamicgeometry}) ||
-	    ($w->{-dynamicgeometry} == 0)) {
+	if ((not defined $w->cget('-dynamicgeometry')) ||
+	    ($w->cget('-dynamicgeometry') == 0)) {
 	    $reqW = 1;
 	    $reqH = 1;
 
@@ -444,6 +444,34 @@ sub InitTabSize {
     $w->{'pad-y2'} = 2;
     $w->{'minW'} = $tW;
     $w->{'minH'} = $tH;
+}
+
+sub BalloonInfo
+{
+ my ($notebook,$balloon,$X,$Y,@opt) = @_;
+ my $page = $notebook->identify($X-$notebook->rootx,$Y-$notebook->rooty);
+ foreach my $opt (@opt)
+  {
+   my $info = $balloon->GetOption($opt,$notebook);
+   if ($opt =~ /^-(statusmsg|balloonmsg)$/ && UNIVERSAL::isa($info,'HASH'))
+    {
+     if (!defined $page)
+      {
+       $balloon->Deactivate;
+       return;
+      }
+     $balloon->Subclient($page);
+     if (exists $info->{$page})
+      {
+       return $info->{$page}
+      }
+     else
+      {
+       return '';
+      }
+    }
+   return $info;
+  }
 }
 
 1;

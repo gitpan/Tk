@@ -21,7 +21,7 @@ require Tk::Menu::Item;
 
 
 use vars qw($VERSION);
-$VERSION = '4.022'; # was: sprintf '4.%03d', q$Revision: #21 $ =~ /\D(\d+)\s*$/;
+$VERSION = '4.023'; # was: sprintf '4.%03d', q$Revision: #21 $ =~ /\D(\d+)\s*$/;
 
 use strict;
 
@@ -1162,7 +1162,7 @@ sub MasterMenu
    my $master_pathname = (split m{\.}, $pathname)[-1];
    $master_pathname =~ s{#}{.}g;
    $master_menu = $menu->Widget($master_pathname);
-   if (!Tk::Exists($master_menu))
+   if (0 && !Tk::Exists($master_menu))
     {
      warn "Cannot find master menu <$master_pathname>";
     }

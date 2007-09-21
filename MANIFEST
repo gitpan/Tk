@@ -46,6 +46,9 @@ Compound/Compound.xs
 Compound/compound_demo
 Compound/Makefile.PL
 config/Ksprintf.c
+config/perlrx.c			Test for changed regexp structure in perl5.9.x
+config/pmop.c			Test for changed pmop structure in perl5.9.x
+config/pregcomp2.c		Test for changed pregcomp call in perl5.9.x
 config/signedchar.c		Test to see of 'signed char' is legal
 config/tod.c			Test for gettimeofday()
 config/unsigned.c		See if 'char' is signed
@@ -168,6 +171,7 @@ demos/demos/widget_lib/virtevents1.pl
 demos/demos/widget_lib/vscale.pl
 demos/demos/widget_lib/WidgetDemo.pm
 demos/demos/widtrib/Gedi.pl
+demos/demos/widtrib/all.pl
 demos/demos/widtrib/cursor.pl
 demos/demos/widtrib/lib/npuz/Xcamel.npuz
 demos/demos/widtrib/npuz.pl
@@ -700,6 +704,7 @@ PNG/PNG.xs
 PNG/pngtest.png
 PNG/README
 PNG/t/basic.t
+PNG/t/crash.t
 PNG/zlib/ChangeLog
 PNG/zlib/FAQ
 PNG/zlib/INDEX
@@ -1943,6 +1948,7 @@ t/browseentry-subclassing.t
 t/browseentry.t
 t/browseentry2.t
 t/button.t
+t/button-tcl.t
 t/canvas.t
 t/create.t
 t/cursor.t
@@ -1973,8 +1979,10 @@ t/optmenu.t
 t/photo.t
 t/pixmap.t
 t/progbar.t
+t/property.t
 t/regexp.t
 t/Require.t
+t/table.t
 t/text.t
 t/Trace.t
 t/TkTest.pm
