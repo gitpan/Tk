@@ -1950,10 +1950,13 @@ t/browseentry2.t
 t/button.t
 t/button-tcl.t
 t/canvas.t
+t/canvas2.t
+t/coloreditor.t
 t/create.t
 t/cursor.t
 t/dash.t
 t/dialogbox.t
+t/dirtree.t
 t/entry.t
 t/exefiles.t
 t/fbox.t
@@ -1986,6 +1989,7 @@ t/table.t
 t/text.t
 t/Trace.t
 t/TkTest.pm
+t/Tkxs.t
 t/trace1.t
 t/slaves.t
 t/unicode.t

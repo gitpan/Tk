@@ -5,20 +5,25 @@ package Tk::DirTree;
 #
 # Chris Dean <ctdean@cogit.com>
 
+use strict;
 use vars qw($VERSION);
-$VERSION = sprintf '4.%03d', q$Revision: #14 $ =~ /\D(\d+)\s*$/;
+$VERSION = '4.019';
 
 use Tk;
 use Tk::Derived;
 use Tk::Tree;
 use Cwd;
 use DirHandle;
+use File::Spec qw();
 
 use base  qw(Tk::Derived Tk::Tree);
 use strict;
 
 Construct Tk::Widget 'DirTree';
 
+my $sep = $^O eq 'MSWin32' ? '\\' : '/';
+
+*_fs_encode = eval { require Encode; 1 } ? sub { Encode::encode("iso-8859-1", $_[0]) } : sub { $_[0] };
 
 sub Populate {
     my( $cw, $args ) = @_;
@@ -32,12 +37,14 @@ sub Populate {
         -directory      => [qw/SETMETHOD directory Directory ./],
         -value          => '-directory' );
 
-    $cw->configure( -separator => '/', -itemtype => 'imagetext' );
+    $cw->configure( -separator => $sep,
+		    -itemtype => 'imagetext',
+		  );
 }
 
 sub DirCmd {
     my( $w, $dir, $showhidden ) = @_;
-    $dir .= "/" if $dir =~ /^[a-z]:$/i and $^O eq 'MSWin32';
+    $dir .= $sep if $dir =~ /^[a-z]:$/i and $^O eq 'MSWin32';
     my $h = DirHandle->new( $dir ) or return();
     my @names = grep( $_ ne '.' && $_ ne '..', $h->read );
     @names = grep( ! /^[.]/, @names ) unless $showhidden;
@@ -59,6 +66,7 @@ sub fullpath
   {
    warn "Cannot cd to $path:$!"
   }
+ $path = File::Spec->canonpath($path);
  return $path;
 }
 
@@ -75,7 +83,7 @@ sub set_dir {
     my( $w, $val ) = @_;
     my $fulldir = fullpath( $val );
 
-    my $parent = '/';
+    my $parent = $sep;
     if ($^O eq 'MSWin32')
      {
       if ($fulldir =~ s/^([a-z]:)//i)
@@ -86,11 +94,10 @@ sub set_dir {
     $w->add_to_tree( $parent, $parent)  unless $w->infoExists($parent);
 
     my @dirs = ($parent);
-    foreach my $name (split( /[\/\\]/, $fulldir )) {
+    foreach my $name (split( /\Q$sep\E/, $fulldir )) {
         next unless length $name;
         push @dirs, $name;
-        my $dir = join( '/', @dirs );
-	$dir =~ s|^//|/|;
+	my $dir = File::Spec->catfile( @dirs );
         $w->add_to_tree( $dir, $name, $parent )
             unless $w->infoExists( $dir );
         $parent = $dir;
@@ -106,10 +113,10 @@ sub OpenCmd {
     my( $w, $dir ) = @_;
 
     my $parent = $dir;
-    $dir = '' if $dir eq '/';
     foreach my $name ($w->dirnames( $parent )) {
         next if ($name eq '.' || $name eq '..');
-        my $subdir = "$dir/$name";
+        my $subdir = File::Spec->catfile( $dir, $name );
+	$subdir = _fs_encode($subdir);
         next unless -d $subdir;
         if( $w->infoExists( $subdir ) ) {
             $w->show( -entry => $subdir );
@@ -124,6 +131,7 @@ sub OpenCmd {
 sub add_to_tree {
     my( $w, $dir, $name, $parent ) = @_;
 
+    my $dir8 = _fs_encode($dir);
     my $image = $w->cget('-image');
     if ( !UNIVERSAL::isa($image, 'Tk::Image') ) {
 	$image = $w->Getimage( $image );
@@ -134,7 +142,9 @@ sub add_to_tree {
     my @args = (-image => $image, -text => $name);
     if( $parent ) {             # Add in alphabetical order.
         foreach my $sib ($w->infoChildren( $parent )) {
-            if( $sib gt $dir ) {
+	    use locale;
+	    my $sib8 = _fs_encode($sib);
+	    if ($sib8 gt $dir8) {
                 push @args, (-before => $sib);
                 last;
             }
@@ -150,7 +160,7 @@ sub has_subdir {
     foreach my $name ($w->dirnames( $dir )) {
         next if ($name eq '.' || $name eq '..');
         next if ($name =~ /^\.+$/);
-        return( 1 ) if -d "$dir/$name";
+        return( 1 ) if -d File::Spec->catfile( $dir, $name );
     }
     return( 0 );
 }
@@ -168,7 +178,7 @@ sub dirnames {
 
     sub Populate {
 	my($w, $args) = @_;
-	$w->{curr_dir} = $args->{-initialdir};
+	$w->{curr_dir} = delete $args->{-initialdir};
 	if (!defined $w->{curr_dir}) {
 	    require Cwd;
 	    $w->{curr_dir} = Cwd::cwd();
@@ -187,7 +197,7 @@ sub dirnames {
 	my $f = $w->Frame->pack(-fill => "x", -side => "bottom");
 
 	my $d;
-	$d = $f->Scrolled('DirTree',
+	$d = $w->Scrolled('DirTree',
 			  -scrollbars => 'osoe',
 			  -width => 35,
 			  -height => 20,
@@ -195,9 +205,6 @@ sub dirnames {
 			  -exportselection => 1,
 			  -browsecmd => sub {
 			      $w->{curr_dir} = shift;
-			      if ($^O ne 'MSWin32') {
-				  $w->{curr_dir} =~ s|^//|/|; # bugfix
-			      }
 			  },
 
 			  # With this version of -command a double-click will
@@ -210,7 +217,7 @@ sub dirnames {
 			  #-command   => sub { $d->opencmd($_[0]) },
 			 )->pack(-fill => "both", -expand => 1);
 	# Set the initial directory
-	exists &Tk::DirTree::chdir ? $d->chdir($w->{curr_dir}) : $d->set_dir($w->{curr_dir});
+	$d->set_dir($w->{curr_dir});
 
 	$f->Button(-text => 'Ok',
 		   -command => sub { $w->{ok} =  1 })->pack(-side => 'left');

@@ -3,7 +3,7 @@
 # modify it under the same terms as Perl itself.
 package Tk::Widget;
 use vars qw($VERSION @DefaultMenuLabels);
-$VERSION = '4.032'; # was: sprintf '4.%03d', q$Revision: #30 $ =~ /\D(\d+)\s*$/;
+$VERSION = '4.033'; # was: sprintf '4.%03d', q$Revision: #30 $ =~ /\D(\d+)\s*$/;
 
 require Tk;
 use AutoLoader;
@@ -1761,3 +1761,10 @@ sub RestoreFocusGrab
     }
   }
 }
+
+# See http://rt.cpan.org/Ticket/Display.html?id=30929 and
+# http://rt.cpan.org/Ticket/Display.html?id=31016
+sub MasterMenu
+ {
+ }
+

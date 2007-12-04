@@ -15,7 +15,7 @@ use     AutoLoader qw(AUTOLOAD);
 use     DynaLoader;
 use     Cwd();
 use base qw(Exporter DynaLoader);
-use     File::Spec qw(catfile);
+use     File::Spec qw();
 
 *fileevent = \&Tk::Event::IO::fileevent;
 
@@ -70,7 +70,7 @@ $Tk::CHANGE      = 'sfsvn-' . q$Change: 27 $;
 # is created, $VERSION is checked by bootstrap
 $Tk::version     = '8.4';
 $Tk::patchLevel  = '8.4';
-$Tk::VERSION     = '804.027_501';
+$Tk::VERSION     = '804.027_502';
 $Tk::VERSION     = eval $Tk::VERSION;
 $Tk::XS_VERSION  = $Tk::VERSION;
 $Tk::strictMotif = 0;
