@@ -70,7 +70,7 @@ $Tk::CHANGE      = 'sfsvn-' . q$Change: 27 $;
 # is created, $VERSION is checked by bootstrap
 $Tk::version     = '8.4';
 $Tk::patchLevel  = '8.4';
-$Tk::VERSION     = '804.028';
+$Tk::VERSION     = '804.028_500';
 $Tk::VERSION     = eval $Tk::VERSION;
 $Tk::XS_VERSION  = $Tk::VERSION;
 $Tk::strictMotif = 0;
@@ -93,7 +93,7 @@ Preload(DynaLoader::dl_findfile('-L/usr/openwin/lib','-lX11'))
   if (NeedPreload() && -d '/usr/openwin/lib');
 
 use Tk::Submethods ('option'    =>  [qw(add get clear readfile)],
-                    'clipboard' =>  [qw(clear append)]
+                    'clipboard' =>  [qw(clear append get)]
                    );
 
 #
@@ -296,7 +296,7 @@ sub MessageBox {
 	}
         my $md = $parent->Dialog(%$args);
         my $an = $md->Show;
-        $md->destroy;
+        $md->destroy if Tk::Exists($md);
         return $an;
     }
 } # end messageBox

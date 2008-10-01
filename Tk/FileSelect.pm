@@ -1,7 +1,7 @@
 package Tk::FileSelect;
 
 use vars qw($VERSION @EXPORT_OK);
-$VERSION = '4.017'; # was: sprintf '4.%03d', q$Revision: #15 $ =~ /\D(\d+)\s*$/;
+$VERSION = '4.018'; # was: sprintf '4.%03d', q$Revision: #15 $ =~ /\D(\d+)\s*$/;
 @EXPORT_OK = qw(glob_to_re);
 
 use Tk qw(Ev);
@@ -101,8 +101,9 @@ sub Accept {
                   #local $_ = $leaf; # use strict var problem here
                   return if not &{$_->[0]}($cw, $path, $leaf, @{$_}[1..$#{$_}]);
               } else {
-                  my $s = eval "$_ '$path/$leaf'";
-                  print $@ if $@;
+		  my $path_leaf = "$path/$leaf";
+                  my $s = eval "$_ \$path_leaf";
+                  warn "Error while eval'ing $_ \$path_leaf: $@" if $@;
                   if (not $s) {
                       my $err;
                       if (substr($_,0,1) eq '!')

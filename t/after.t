@@ -1,16 +1,38 @@
+my $divisor;
 use Test::More (tests => 6);
 use Tk;
+use strict;
+BEGIN {
+    eval 'use Time::HiRes qw(time)';
+    $divisor = $@ ? 1 : 10;
+}
 my $mw = MainWindow->new;
 $mw->withdraw;
 my $start = time;
-$mw->after(1000,sub { my $t = time;
-                      isnt($t,$start);
-                      ok( $t >= $start+1,"$t >= $start");
-                      ok( $t <= $start+2 ) });
-$mw->after(2000,sub { my $t = time;
-                      ok( $t >= $start+2 );
-                      ok( $t <= $start+3 ) });
-$mw->after(3000,[destroy => $mw ]);
+$mw->after(1000/$divisor,sub { my $t = time;
+			       isnt($t,$start);
+			       my $expected_min = $start+1/$divisor;
+			       my $expected_max = $start+3/$divisor;
+			       cmp_ok($t, ">=", $expected_min, "short after: $t >= $expected_min");
+			       if ($t <= $expected_max) {
+				   pass("$t <= $expected_max");
+			       } else {
+				   local $TODO = "Probably loaded machine";
+				   fail("$t is not <= $expected_max");
+			       }
+			   });
+$mw->after(2000/$divisor,sub { my $t = time;
+			       my $expected_min = $start+2/$divisor;
+			       my $expected_max = $start+4/$divisor;
+			       cmp_ok($t, ">=", $expected_min, "longer after: $t >= $expected_min");
+			       if ($t <= $expected_max) {
+				   pass("$t <= $expected_max");
+			       } else {
+				   local $TODO = "Probably loaded machine";
+				   fail("$t is not <= $expected_max");
+			       }
+			   });
+$mw->after(3000/$divisor,[destroy => $mw ]);
 MainLoop;
-ok(time >= $start+3);
+cmp_ok(time, ">=", $start+3/$divisor);
 

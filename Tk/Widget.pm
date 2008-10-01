@@ -3,7 +3,7 @@
 # modify it under the same terms as Perl itself.
 package Tk::Widget;
 use vars qw($VERSION @DefaultMenuLabels);
-$VERSION = '4.033'; # was: sprintf '4.%03d', q$Revision: #30 $ =~ /\D(\d+)\s*$/;
+$VERSION = '4.034'; # was: sprintf '4.%03d', q$Revision: #30 $ =~ /\D(\d+)\s*$/;
 
 require Tk;
 use AutoLoader;
@@ -881,7 +881,7 @@ sub BusyRecurse
  my ($restore,$w,$cursor,$recurse,$top) = @_;
  my $c = $w->cget('-cursor');
  my @tags = $w->bindtags;
- if ($top || defined($c))
+ if ($top || defined($c) || $w->isa('Tk::Toplevel'))
   {
    push(@$restore, sub { return unless Tk::Exists($w); $w->configure(-cursor => $c); $w->bindtags(\@tags) });
    $w->configure(-cursor => $cursor);
@@ -1433,7 +1433,7 @@ sub bindDump {
     # print "Binding information for $w\n";
     # foreach my $tag ($w->bindtags) {
     #     printf "\n Binding tag '$tag' has these bindings:\n";
-    #     foreach my $binding ($w->bind($tag)) {
+    #     foreach my $binding ($w->Tk::bind($tag)) {
     #         printf "  $binding\n";
     #     }
     # }
@@ -1451,7 +1451,7 @@ sub bindDump {
     push @out, sprintf( "\n## Binding information for '%s', %s ##", $w->PathName, $w );
 
     foreach my $tag (@bindtags) {
-        my (@bindings) = $w->bind($tag);
+        my (@bindings) = $w->Tk::bind($tag);
         $n++;                   # count this bindtag
 
         if ($#bindings == -1) {
@@ -1460,7 +1460,7 @@ sub bindDump {
             push @out, sprintf( "\n$format1 Binding tag '$tag' has these bindings:\n", $n );
 
             foreach my $binding ( @bindings ) {
-                my $callback = $w->bind($tag, $binding);
+                my $callback = $w->Tk::bind($tag, $binding);
                 push @out, sprintf( "$format2%27s : %-40s\n", $binding, $callback );
 
                 if ($callback =~ /SCALAR/) {

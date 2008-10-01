@@ -1,3 +1,4 @@
+# -*- cperl -*-
 require 5.00404;
 my $path = "$Config{'archlibexp'}/CORE/perl.h";
 die "Cannot find '$path' have you installed $^X?\n" unless (-r $path);
@@ -192,6 +193,11 @@ if (try_compile("config/pregcomp2.c",  ["-I$Config{'archlibexp'}/CORE"], undef, 
   $define{'USE_PREGCOMP_31027'} = 1; # pregcomp after perl change 31027
  }
 
+if (try_compile("config/regexp511.c",  ["-I$Config{'archlibexp'}/CORE"], undef, ["-c"]))
+ {
+  $define{'USE_REGEXP_511'} = 1; # REGEXP in perl 5.11.x
+ }
+
 if (try_compile("config/signedchar.c"))
  {
   $define{'ANSI_SIGNED_CHAR'} = 1;
@@ -208,6 +214,11 @@ if (!try_compile("config/Ksprintf.c") &&
      try_compile("-DSPRINTF_RETURN_CHAR config/Ksprintf.c"))
  {
   $define{'SPRINTF_RETURN_CHAR'} = 1;
+ }
+
+if (try_compile("config/svtrv.c"))
+ {
+  $define{'HAS_REAL_SVT_RV'} = 1; # changed in perl 5.11.0, SVt_RV is since then defined as SVt_IV 
  }
 
 if (!$IsWin32)
@@ -366,7 +377,21 @@ if ($win_arch eq 'x') {
 		    $Config{'usrinc'});
     }
 
-  die "Cannot find X include files anywhere" unless (defined $xinc);
+  unless (defined $xinc)
+    {
+      warn <<EOF;
+Cannot find X include files anywhere.
+EOF
+      if ($^O eq 'linux')
+        {
+          warn <<EOF;
+You probably need to install the X11 development package first.
+On Debian Linux, these are the packages libx11-dev and x-dev.
+Please see README.linux for more information.
+EOF
+        }
+      exit 0;
+    }
 
   if (defined($Config{'gccversion'}) &&
       $Config{'gccversion'} =~ /\S/  &&

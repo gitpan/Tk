@@ -2,7 +2,7 @@ package Tk::ColorSelect; # XXX why is this the Tk::ColorSelect package?
 use strict;
 
 use vars qw($VERSION);
-$VERSION = '4.010'; # was: sprintf '4.%03d', q$Revision: #8 $ =~ /\D(\d+)\s*$/;
+$VERSION = '4.011'; # was: sprintf '4.%03d', q$Revision: #8 $ =~ /\D(\d+)\s*$/;
 
 use Tk qw(Ev);
 
@@ -25,6 +25,8 @@ sub Populate
                 '/usr/local/X11R5/lib/X11/rgb.txt', '/X11/R5/lib/X11/rgb.txt',
                 '/X11/R4/lib/rgb/rgb.txt', '/usr/openwin/lib/X11/rgb.txt',
 		'/usr/share/X11/rgb.txt', # This is the Debian location
+		'/usr/X11/share/X11/rgb.txt', # seen on a Mac OS X 10.5.1 system
+		'/usr/X11R6/share/X11/rgb.txt', # seen on a OpenBSD 4.2 system
 	       ) {
         local *FOO;
         next if ! open FOO, $i;

@@ -1,3 +1,4 @@
+# -*- cperl -*-
 use 5.007;
 use open IO => ':bytes';
 use Cwd;
@@ -77,9 +78,11 @@ Tk::MMutil::TkExtMakefile(
 					    : ''),
     'LIBS'    => \@libs,
     'OBJECT'  => '$(O_FILES)',
-    'PREREQ_PM'  => { 'Encode' => 0 },
+    'PREREQ_PM'  => { 'Encode' => 0,
+		      'Test::More' => 0,
+		    },
     'clean'      => { FILES => 'pTk/tkConfig.h Tk/Config.pm' },
-    'NO_META'    => 1,
+    'LICENSE'    => 'unrestricted',
     @macro
    );
 

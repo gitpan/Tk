@@ -6,10 +6,10 @@ package TkTest;
 
 use strict;
 use vars qw(@EXPORT @EXPORT_OK $eps $VERSION);
-$VERSION = '4.006'; # was: sprintf '4.%03d', q$Revision: #3 $ =~ /\D(\d+)\s*$/;
+$VERSION = '4.007'; # was: sprintf '4.%03d', q$Revision: #3 $ =~ /\D(\d+)\s*$/;
 
 use base qw(Exporter);
-@EXPORT    = qw(is_float check_display_harness);
+@EXPORT    = qw(is_float is_float_pair check_display_harness);
 @EXPORT_OK = qw(catch_grabs wm_info);
 
 use POSIX qw(DBL_EPSILON);
@@ -67,6 +67,17 @@ sub is_float ($$;$) {
     }
 }
 
+sub is_float_pair ($$;$) {
+    my($values, $expected, $testname) = @_;
+    local $Test::Builder::Level = $Test::Builder::Level+1;
+    for my $def ([0, "first value"],
+		 [1, "second value"],
+		) {
+	my($inx, $testname_add) = @$def;
+	is_float($values->[$inx], $expected->[$inx], (defined $testname ? "$testname " : "") . "($testname_add)");
+    }
+}
+
 sub catch_grabs (&;$) {
     my($code, $tests) = @_;
     $tests = 1 if !defined $tests;
@@ -74,8 +85,12 @@ sub catch_grabs (&;$) {
     eval {
 	$code->();
     };
-    if ($@ && $@ !~ m{^\Qgrab failed: another application has grab}) {
-	die $@;
+    if ($@) {
+	if ($@ !~ m{^grab failed: (window not viewable|another application has grab)}) {
+	    die $@;
+	} else {
+	    Test::More::diag("Ignore grab problem: $@");
+	}
     }
     my $tests_after = Test::More->builder->current_test;
     if ($tests_after - $tests_before != $tests) {
@@ -85,6 +100,12 @@ sub catch_grabs (&;$) {
     }
 }
 
+# Note that version guesses are done by issuing a
+# <windowmanager --version> command. But there's no
+# guarantee that the window manager executable in path
+# is the same one as currently running. Especially it's
+# possible that the window manager is not running at all
+# on the same machine!
 sub wm_info ($) {
     my $mw = shift;
 
@@ -100,10 +121,15 @@ sub wm_info ($) {
 	    if (eval { $mw->property('get', '_WINDOWMAKER_NOTICEBOARD', $windowid); 1 }
 		|| eval { $mw->property('get', '_WINDOWMAKER_ICON_TILE', $windowid); 1 }) {
 		$wm_name = "WindowMaker";
+		my($maybe_wm_version) = `wmaker --version` =~ m{Window Maker\s+([\d\.]+)}i;
+		if ($maybe_wm_version) {
+		    $wm_version = "$maybe_wm_version (maybe)";
+		}
 	    } else {
 		$wm_name = "<unknown> (property _NET_SUPPORTING_WM_CHECK exists, but getting _NET_WM_NAME fails)";
 	    }
 	} else {
+	    $wm_name =~ s{\0}{}g; # trailing zero bytes seen with Xfwm4
 	    if ($wm_name eq 'Metacity') {
 		($wm_version) = eval { $mw->property('get', '_METACITY_VERSION', $windowid) };
 	    } else {
@@ -111,6 +137,28 @@ sub wm_info ($) {
 		my($maybe_wm_version) = eval { $mw->property('get', '_'.$wm_name.'_VERSION', $windowid) };
 		if ($maybe_wm_version) {
 		    $wm_version = $maybe_wm_version;
+		} else {
+		    if ($wm_name eq 'FVWM') {
+			my($maybe_wm_version) = `fvwm --version` =~ m{fvwm\s+([\d\.]+)}i;
+			if ($maybe_wm_version) {
+			    $wm_version = "$maybe_wm_version (maybe)";
+			}
+		    } elsif ($wm_name eq 'KWin') {
+			my($maybe_wm_version) = `kwin --version` =~ m{KWin:\s+([\d\.]+)}i;
+			if ($maybe_wm_version) {
+			    $wm_version = "$maybe_wm_version (maybe)";
+			}
+		    } elsif ($wm_name eq 'Xfwm4') {
+			my($maybe_wm_version) = `xfwm4 --version` =~ m{xfwm4\s+version\s+([\d\.]+)}i;
+			if ($maybe_wm_version) {
+			    $wm_version = "$maybe_wm_version (maybe)";
+			}
+		    } elsif ($wm_name eq 'Fluxbox') {
+			my($maybe_wm_version) = `fluxbox -v` =~ m{fluxbox\s+([\d\.]+)}i;
+			if ($maybe_wm_version) {
+			    $wm_version = "$maybe_wm_version (maybe)";
+			}
+		    }
 		}
 	    }
 	}

@@ -14,9 +14,11 @@ BEGIN {
     }
 }
 
+use Getopt::Long;
+
 use TkTest qw(catch_grabs);
 
-plan tests => 13;
+plan tests => 15;
 
 if (!defined $ENV{BATCH}) { $ENV{BATCH} = 1 }
 
@@ -29,6 +31,9 @@ eval { $top->geometry('+10+10'); }; # This works for mwm and interactivePlacemen
 my $f;
 
 my $delay = 500;
+
+GetOptions("delay=i" => \$delay)
+    or die "usage: $0 [-delay ...ms]";
 
 ######################################################################
 # open
@@ -137,11 +142,14 @@ catch_grabs {
 
 ######################################################################
 # getOpenFile etc.
-SKIP: {
-    skip("getOpenFile etc. only on X11", 3)
-	if $Tk::platform ne 'unix';
+TODO: {
+## XXX works everywhere?
+#     skip("getOpenFile etc. only on X11", 3)
+# 	if $Tk::platform ne 'unix';
+    todo_skip("known coredumps with multiple MainWindows on freebsd", 5)
+	if $^O eq 'freebsd';
 
-    {
+    catch_grabs {
 	my $mw = MainWindow->new;
 	$mw->after($delay, sub { $mw->destroy }) if $ENV{BATCH};
 	my $result = $mw->getOpenFile;
@@ -149,9 +157,9 @@ SKIP: {
 	    diag "Result is <$result>";
 	}
 	pass("called getOpenFile");
-    }
+    };
 
-    {
+    catch_grabs {
 	my $mw = MainWindow->new;
 	$mw->after($delay, sub { $mw->destroy }) if $ENV{BATCH};
 	my $result = $mw->getSaveFile;
@@ -159,9 +167,9 @@ SKIP: {
 	    diag "Result is <$result>";
 	}
 	pass("called getSaveFile");
-    }
+    };
 
-    {
+    catch_grabs {
 	my $mw = MainWindow->new;
 	$mw->after($delay, sub { $mw->destroy }) if $ENV{BATCH};
 	my $result = $mw->chooseDirectory;
@@ -169,7 +177,18 @@ SKIP: {
 	    diag "Result is <$result>";
 	}
 	pass("called chooseDirectory");
-    }
+    };
+
+    catch_grabs {
+	my $mw = MainWindow->new;
+	$mw->after($delay, sub { $mw->destroy }) if $ENV{BATCH};
+	my $result = $mw->getOpenFile(-multiple => 1, -title => "getOpenFile with -multiple");
+	ok(!defined $result || ref($result) eq "ARRAY", "Result of -multiple is an array reference or undef");
+	if (!$ENV{BATCH}) {
+	    diag "Result is <@$result>" if $result;
+	}
+	pass("called getOpenFile with -multiple");
+    };
 }
 
 1;

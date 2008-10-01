@@ -49,7 +49,9 @@ config/Ksprintf.c
 config/perlrx.c			Test for changed regexp structure in perl5.9.x
 config/pmop.c			Test for changed pmop structure in perl5.9.x
 config/pregcomp2.c		Test for changed pregcomp call in perl5.9.x
+config/regexp511.c		Test for changed REGEXP in perl5.11.x
 config/signedchar.c		Test to see of 'signed char' is legal
+config/svtrv.c			Test for changed SVt_RV in perl5.11.0
 config/tod.c			Test for gettimeofday()
 config/unsigned.c		See if 'char' is signed
 config/xft.c
@@ -1941,8 +1943,10 @@ symbols
 t/00wmcheck.t			Provide information about wm
 t/adjuster.t
 t/after.t
+t/async.t
 t/autoload.t
 t/balloon.t
+t/bind.t
 t/browseentry-grabtest.t
 t/browseentry-subclassing.t
 t/browseentry.t
@@ -1958,9 +1962,11 @@ t/dash.t
 t/dialogbox.t
 t/dirtree.t
 t/entry.t
+t/errordialog.t
 t/exefiles.t
 t/fbox.t
 t/fileevent.t
+t/fileevent2.t
 t/fileselect.t
 t/font.t
 t/fork.t
@@ -1985,8 +1991,10 @@ t/progbar.t
 t/property.t
 t/regexp.t
 t/Require.t
+t/rotext.t
 t/table.t
 t/text.t
+t/textundo.t
 t/Trace.t
 t/TkTest.pm
 t/Tkxs.t
@@ -2200,3 +2208,4 @@ Xlib/X/X.xs
 Xlib/Xlib.pm
 Xlib/Xlib.xs
 xlib_demo
+META.yml                                 Module meta-data (added by MakeMaker)

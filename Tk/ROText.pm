@@ -4,7 +4,8 @@
 package Tk::ROText;
 
 use vars qw($VERSION);
-$VERSION = sprintf '4.%03d', q$Revision: #10 $ =~ /\D(\d+)\s*$/;
+#$VERSION = sprintf '4.%03d', q$Revision: #10 $ =~ /\D(\d+)\s*$/;
+$VERSION = '4.011';
 
 use Tk::Text;
 use base  qw(Tk::Derived Tk::Text);
@@ -28,11 +29,15 @@ sub ClassInit
  return $val;
 }
 
-sub Populate {
-    my($self,$args) = @_;
-    $self->SUPER::Populate($args);
-    my $m = $self->menu->entrycget($self->menu->index('Search'), '-menu');
-    $m->delete($m->index('Replace'));
+sub Populate
+{
+ my($self,$args) = @_;
+ $self->SUPER::Populate($args);
+ my $m = $self->menu->entrycget($self->menu->index('Search'), '-menu');
+ $m->delete($m->index('Replace'));
+ $self->ConfigSpecs(-background => ['SELF'],
+		    -foreground => ['SELF'],
+		   );
 }
 
 sub Tk::Widget::ScrlROText { shift->Scrolled('ROText' => @_) }

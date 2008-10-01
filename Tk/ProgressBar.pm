@@ -1,7 +1,7 @@
 package Tk::ProgressBar;
 
 use vars qw($VERSION);
-$VERSION = '4.011'; # was: sprintf '4.%03d', q$Revision: #10 $ =~ /\D(\d+)\s*$/;
+$VERSION = '4.012'; # was: sprintf '4.%03d', q$Revision: #10 $ =~ /\D(\d+)\s*$/;
 
 use Tk;
 use Tk::Canvas;
@@ -450,7 +450,7 @@ full progress bar will be displayed. Defaults to 100.
 =item B<-variable>
 
 Specifies the reference to a scalar variable to link to the ProgressBar.
-Whenever the value of the variable changes, the ProgressBar will upate
+Whenever the value of the variable changes, the ProgressBar will update
 to reflect this value. (See also the B<value> method below.)
 
 =item B<-value>

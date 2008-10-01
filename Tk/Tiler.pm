@@ -7,14 +7,13 @@ require Tk;
 require Tk::Frame;
 
 use vars qw($VERSION);
-$VERSION = sprintf '4.%03d', q$Revision: #12 $ =~ /\D(\d+)\s*$/;
+#$VERSION = sprintf '4.%03d', q$Revision: #12 $ =~ /\D(\d+)\s*$/;
+$VERSION = '4.013';
 
 use base  qw(Tk::Frame);
 
 Construct Tk::Widget 'Tiler';
 sub Tk::Widget::ScrlTiler { shift->Scrolled('Tiler' => @_) }
-
-use Tk::Pretty;
 
 sub FocusChildren
 {

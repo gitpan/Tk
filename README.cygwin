@@ -1,6 +1,9 @@
-Currently building Perl/Tk under cygwin seems to be broken, either
-with native Win32 GUI or X11 libraries. Patches to fix the build are
-welcome.
+Currently building Perl/Tk under cygwin is broken using the native
+Win32 GUI libraries.
+
+Using the X11 libraries, "make test" will very probably fail due to
+"rebase" problems, but Perl/Tk should be mostly usable after an
+installation and maybe a manual "rebaseall" after.
 
 ----------------------------------------------------------------------
 
@@ -12,6 +15,10 @@ CONFIGURE/BUILD
     Use native Win32 GUI calls:
 
         perl Makefile.PL
+
+    or
+
+        perl Makefile.PL MSWin32
 
     Use X11 client libraries (and requires a X server):
 
