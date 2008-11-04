@@ -9,7 +9,7 @@ use Carp;
 use File::Basename;
 
 use vars qw($VERSION);
-$VERSION = '4.022'; # was: sprintf '4.%03d', q$Revision: #21 $ =~ /\D(\d+)\s*$/;
+$VERSION = '4.023'; # was: sprintf '4.%03d', q$Revision: #21 $ =~ /\D(\d+)\s*$/;
 
 # warn __FILE__." $VERSION\n";
 
@@ -550,7 +550,7 @@ sub TkExtMakefile
     {
      my $base  = $Config{'libpth'};
      $base =~ s#lib$#i386-mingw32/lib#;
-     my $extra = "-L$base -lcomdlg32 -lgdi32";
+     my $extra = "-L$base -limm32 -lcomctl32 -lcomdlg32 -lgdi32";
      my $libs = $att{'LIBS'}->[0];
      $att{'LIBS'}->[0] = "$extra $libs";
     }
@@ -562,7 +562,7 @@ sub TkExtMakefile
      push(@opt,'LD' => 'gcc -shared');
      if ($win_arch eq 'MSWin32')
       {
-       my $extra = "-L/lib/w32api -lcomdlg32 -lgdi32";
+       my $extra = "-L/lib/w32api -limm32 -lcomctl32 -lcomdlg32 -lgdi32";
        my $libs = $att{'LIBS'}->[0];
        $att{'LIBS'}->[0] = "$extra $libs";
        $att{'DEFINE'} .= ' -D__WIN32__ -D_WIN32 -DWINARCH_MSWIN32';

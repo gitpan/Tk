@@ -146,8 +146,8 @@ TODO: {
 ## XXX works everywhere?
 #     skip("getOpenFile etc. only on X11", 3)
 # 	if $Tk::platform ne 'unix';
-    todo_skip("known coredumps with multiple MainWindows on freebsd", 5)
-	if $^O eq 'freebsd';
+    todo_skip("known coredumps with multiple MainWindows on some systems", 5)
+	if 1;
 
     catch_grabs {
 	my $mw = MainWindow->new;
