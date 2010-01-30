@@ -8,7 +8,7 @@
 package Tk::BrowseEntry;
 
 use vars qw($VERSION);
-$VERSION = '4.014'; # was: sprintf '4.%03d', q$Revision: #13 $ =~ /\D(\d+)\s*$/;
+$VERSION = '4.015'; # was: sprintf '4.%03d', q$Revision: #13 $ =~ /\D(\d+)\s*$/;
 
 use Tk qw(Ev);
 use Carp;
@@ -370,9 +370,11 @@ sub Popdown {
 #
 sub ButtonHack {
     my ($w) = @_;
-    my $b = $w->Subwidget('arrow');
     if ($w->{'_BE_buttonHack'}) {
-	$b->butUp;
+	my $b = $w->Subwidget('arrow');
+	if (Tk::Exists($b)) {
+	    $b->butUp;
+	}
     }
 }
 

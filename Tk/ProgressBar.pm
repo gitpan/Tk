@@ -1,7 +1,7 @@
 package Tk::ProgressBar;
 
 use vars qw($VERSION);
-$VERSION = '4.012'; # was: sprintf '4.%03d', q$Revision: #10 $ =~ /\D(\d+)\s*$/;
+$VERSION = '4.013'; # was: sprintf '4.%03d', q$Revision: #10 $ =~ /\D(\d+)\s*$/;
 
 use Tk;
 use Tk::Canvas;
@@ -298,7 +298,7 @@ sub value {
 sub variable {
     my $c = shift;
     my $oldvarref = $c->{'-variable'};
-    my $oldval = $$oldvarref if $oldvarref;
+    my $oldval; $oldval = $$oldvarref if $oldvarref;
     if(@_) {
 	my $varref = shift;
         if ($oldvarref)
@@ -334,8 +334,8 @@ Tk::ProgressBar - A graphical progress bar
     use Tk::ProgressBar;
 
     $progress = $parent->ProgressBar(
-	-width => 200,
-	-length => 20,
+	-width => 20,
+	-length => 200,
         -anchor => 's',
 	-from => 0,
 	-to => 100,

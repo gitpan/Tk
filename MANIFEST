@@ -1976,6 +1976,7 @@ t/button.t
 t/button-tcl.t
 t/canvas.t
 t/canvas2.t
+t/canvas-grid.t
 t/coloreditor.t
 t/create.t
 t/cursor.t
@@ -2005,6 +2006,7 @@ t/magic.t
 t/mega.t
 t/msgbox.t
 t/mwm.t
+t/objglue.t
 t/optmenu.t
 t/photo.t
 t/pixmap.t
@@ -2204,4 +2206,5 @@ Xlib/X/X.pm
 Xlib/X/X.xs
 Xlib/Xlib.pm
 Xlib/Xlib.xs
+xt/mw_segfault.t
 META.yml                                 Module meta-data (added by MakeMaker)

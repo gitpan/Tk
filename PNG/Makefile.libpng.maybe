@@ -3,69 +3,86 @@
 use strict;
 use Config;
 use File::Copy;
-chmod(0666,'Makefile');
-my $file;
 
-if ($^O eq 'MSWin32')
+chmod(0666,'Makefile');
+
+unless (try_configure())
  {
-  if ($Config{'cc'} =~ /gcc/ && $Config{'make'} =~ /dmake/)
+  my $file;
+  if ($^O eq 'MSWin32')
    {
-    # This is the StrawberryPerl configuration
-    $file = 'scripts/makefile.gcc';
-   }
-  elsif ($Config{'cc'} =~ /gcc/)
-   {
-    $file = 'scripts/makefile.mingw';
-   }
-  elsif ($Config{'cc'} =~ /bcc/)
-   {
-    $file = 'scripts/makefile.bc32';
-   }
-  else
-   {
-    $file = 'scripts/makefile.vcwin32';
-    warn "Assuming ".$Config{'cc'}." is visual C of some kind\n";
-   }
- }
-else
- {
-  if ($Config{'gccversion'})
-   {
-    $file = 'scripts/makefile.gcc';
-   }
-  else
-   {
-    if (($Config{archname} =~ /^IA64\./) && ($^O eq "hpux"))
+    if ($Config{'cc'} =~ /gcc/ && $Config{'make'} =~ /dmake/)
      {
-      $file = 'scripts/makefile.hp64';
+      # This is the StrawberryPerl configuration
+      $file = 'scripts/makefile.gcc';
+     }
+    elsif ($Config{'cc'} =~ /gcc/)
+     {
+      $file = 'scripts/makefile.mingw';
+     }
+    elsif ($Config{'cc'} =~ /bcc/)
+     {
+      $file = 'scripts/makefile.bc32';
      }
     else
      {
-      $file = 'scripts/makefile.std';
-      my %makefiles = map { /makefile\.(.*)/ && ($1 => $_) } glob('scripts/makefile.*');
-      foreach my $arch (sort keys %makefiles)
+      $file = 'scripts/makefile.vcwin32';
+      warn "Assuming ".$Config{'cc'}." is visual C of some kind\n";
+     }
+   }
+  else
+   {
+    if ($Config{'gccversion'})
+     {
+      $file = 'scripts/makefile.gcc';
+     }
+    else
+     {
+      if (($Config{archname} =~ /^IA64\./) && ($^O eq "hpux"))
        {
-        if ($^O =~ /$arch/i)
+        $file = 'scripts/makefile.hp64';
+       }
+      elsif ($^O eq 'aix') # untested! see http://rt.cpan.org/Ticket/Display.html?id=40064
+       {
+        $file = 'scripts/makefile.aix';
+       }
+      else
+       {
+        $file = 'scripts/makefile.std';
+        my %makefiles = map { /makefile\.(.*)/ && ($1 => $_) } glob('scripts/makefile.*');
+        foreach my $arch (sort keys %makefiles)
          {
-          $file = $makefiles{$arch};
+          if ($^O =~ /$arch/i)
+           {
+            $file = $makefiles{$arch};
+           }
          }
        }
      }
+    warn "Using $file for $^O\nIf make fails read PNG/libpng/INSTALL\n";
    }
-  warn "Using $file for $^O\nIf make fails read PNG/libpng/INSTALL\n";
+
+  copy($file,"Makefile")
+   || die "Cannot copy $file to Makefile:$!";
  }
 
-copy($file,"Makefile")
-   || die "Cannot copy $file to Makefile:$!";
-
-if ($^O eq 'darwin' ||
-    $Config{'archname'} =~ m{^amd64-freebsd($|-.*)} ||
-    $Config{'archname'} =~ m{^sun4-solaris($|-.*)}
-   )
- {
-  system(sh => "./configure");
-  open my $fh, ">> Makefile" or die "Can't write to Makefile: $!";
-  print $fh <<'EOF';
+sub try_configure
+{
+ if ($^O eq 'darwin' ||
+     $Config{'archname'} =~ m{^(?:
+ 			       amd64-freebsd
+ 			      |i386-freebsd
+ 			      |sun4-solaris
+ 			      |IP35-irix
+ 			      )(?:$|-.*)
+ 			    }x
+    )
+  {
+   local $ENV{CC} = $Config{cc};
+   local $ENV{CFLAGS} = "$Config{ccflags} $Config{cccdlflags}";
+   system(sh => "./configure");
+   open my $fh, ">> Makefile" or die "Can't write to Makefile: $!";
+   print $fh <<'EOF';
 
 libpng.a: all
 	cp .libs/libpng.a libpng.a
@@ -77,7 +94,10 @@ clean:
 test:
 
 EOF
- }
+   return 1;
+  }
+ return 0;
+}
 
 1;
 

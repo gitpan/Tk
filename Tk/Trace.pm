@@ -1,7 +1,7 @@
 package Tk::Trace;
 
 use vars qw($VERSION);
-$VERSION = '4.008'; # was: sprintf '4.%03d', q$Revision: #7 $ =~ /\D(\d+)\s*$/;
+$VERSION = '4.009'; # was: sprintf '4.%03d', q$Revision: #7 $ =~ /\D(\d+)\s*$/;
 
 use Carp;
 use Tie::Watch;
@@ -178,10 +178,10 @@ sub Tk::Widget::traceVdelete {
 
     my ( $parent, $vref, $op_not_honored, $callabck_not_honored ) = @_;
 
-    if ( defined $TRACE{$vref}->[0] ) {
-        $$vref = $TRACE{$vref}->[0]->Fetch;
-        $TRACE{$vref}->[0]->Unwatch;
-        delete $TRACE{$vref};
+    if ( defined $vref && defined $TRACE{$vref} && defined $TRACE{$vref}->[0] ) {
+	$$vref = $TRACE{$vref}->[0]->Fetch;
+	$TRACE{$vref}->[0]->Unwatch;
+	delete $TRACE{$vref};
     }
 
 } # end traceVdelete
