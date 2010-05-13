@@ -9,10 +9,6 @@ BEGIN
   $IsWin32 = ($^O eq 'MSWin32' || $Config{'ccflags'} =~ /-D_?WIN32_?/);
   $xtra = "";
 
-  if ($Config{myuname} =~ /\bredhat\.com\b/ && $ENV{LANG} =~ /\.UTF-8/)
-   {
-    warn "RedHat perl in UTF-8 locale may not build Tk\n";
-   }
   open(M, "Tk.pm") or die "Can't open Tk.pm for reading VERSION: $!";
   while(<M>)
    {
@@ -237,4 +233,12 @@ MANIFEST : MANIFEST.SKIP $(FIRST_MAKEFILE)
  $str;
 }
 
-
+{
+ package MY;
+ sub init_PM
+ {
+  my $self = shift;
+  $self->SUPER::init_PM(@_);
+  delete $self->{PM}->{"fix_4_os2.pl"};
+ }
+}

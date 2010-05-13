@@ -7,7 +7,7 @@ package Tk::DirTree;
 
 use strict;
 use vars qw($VERSION);
-$VERSION = '4.020';
+$VERSION = '4.021';
 
 use Tk;
 use Tk::Derived;
@@ -191,6 +191,8 @@ sub dirnames {
 
 	$w->title($title);
 	$w->{ok} = 0; # flag: "1" means OK, "-1" means cancelled
+
+	$w->transient($w->Parent->toplevel);
 
 	# Create Frame widget before the DirTree widget, so it's always visible
 	# if the window gets resized.

@@ -21,7 +21,7 @@ use Text::Tabs;
 
 use vars qw($VERSION);
 #$VERSION = sprintf '4.%03d', q$Revision: #24 $ =~ /\D(\d+)\s*$/;
-$VERSION = '4.027';
+$VERSION = '4.028';
 
 use Tk qw(Ev $XS_VERSION);
 use base  qw(Tk::Clipboard Tk::Widget);
@@ -855,8 +855,9 @@ sub FindNext
  ## if backward, start search from start of selected block.
  ## dont want search to find currently selected text.
  ## tag 'sel' may not be defined, use eval loop to trap error
+ my $is_forward = $direction =~ m{^-f} && $direction eq substr("-forwards", 0, length($direction));
  eval {
-  if ($direction eq '-forward')
+  if ($is_forward)
    {
    $w->markSet('insert', 'sel.last');
    $w->markSet('current', 'sel.last');
@@ -908,7 +909,7 @@ sub FindNext
 
  $w->see($start_index);
 
- if ($direction eq '-forward')
+ if ($is_forward)
   {
   $w->markSet('insert', $end_index);
   $w->markSet('current', $end_index);
@@ -1443,6 +1444,14 @@ sub PRINTF
 {
  my $w = shift;
  $w->PRINT(sprintf(shift,@_));
+}
+
+sub WRITE
+{
+ my ($w, $scalar, $length, $offset) = @_;
+ unless (defined $length) { $length = length $scalar }
+ unless (defined $offset) { $offset = 0 }
+ $w->PRINT(substr($scalar, $offset, $length));
 }
 
 sub WhatLineNumberPopUp
