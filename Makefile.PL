@@ -64,6 +64,17 @@ else
 my $dir = Tk::MMutil::find_subdir();
 delete $dir->{'pTk'};
 
+my $eumm_recent_enough = $ExtUtils::MakeMaker::VERSION >= 6.54;
+
+if (!$eumm_recent_enough) {
+    *MY::dist_core = sub {
+	<<'EOF';
+dist :
+	$(NOECHO) $(ECHO) "Sorry, use a newer EUMM!"
+
+EOF
+    };
+}
 
 Tk::MMutil::TkExtMakefile(
     'VERSION'  => $VERSION,
@@ -82,6 +93,10 @@ Tk::MMutil::TkExtMakefile(
 		    },
     'clean'      => { FILES => 'pTk/tkConfig.h Tk/Config.pm' },
     'LICENSE'    => 'unrestricted',
+
+    ($eumm_recent_enough ?
+      (META_ADD => { resources => { repository => 'http://github.com/eserte/perl-tk' } }) : ()),
+
     @macro
    );
 
@@ -194,8 +209,8 @@ sub MY::test
 sub MY::test_via_harness
 {
  my($self, $perl, $tests) = @_;
- qq{\t$perl "-It" "-MTkTest" "-MExtUtils::Command::MM" }.
- qq{"-e" "check_display_harness; test_harness(\$(TEST_VERBOSE), '\$(INST_LIB)', '\$(INST_ARCHLIB)')" $tests\n};
+ qq{\t$perl "-It" "-MTkTest" }.
+ qq{"-e" "checked_test_harness('\$(TKDIR)/xt/skip_all.t', \$(TEST_VERBOSE), '\$(INST_LIB)', '\$(INST_ARCHLIB)')" $tests\n};
 }
 
 sub MY::postamble {

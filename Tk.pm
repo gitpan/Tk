@@ -64,13 +64,14 @@ use Carp;
 
 # Record author's perforce depot record
 #$Tk::CHANGE      = q$Change: 3279 $;
-$Tk::CHANGE      = 'sfsvn-' . q$Change: 27 $;
+#$Tk::CHANGE      = 'sfsvn-' . q$Change: 27 $;
+$Tk::CHANGE      = 'git-controlled';
 
 # $tk_version and $tk_patchLevel are reset by pTk when a mainwindow
 # is created, $VERSION is checked by bootstrap
 $Tk::version     = '8.4';
 $Tk::patchLevel  = '8.4';
-$Tk::VERSION     = '804.029';
+$Tk::VERSION     = '804.029_500';
 $Tk::VERSION     = eval $Tk::VERSION;
 $Tk::XS_VERSION  = $Tk::VERSION;
 $Tk::strictMotif = 0;

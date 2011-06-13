@@ -4,16 +4,9 @@ use Tk::Config ();
 use File::Copy;
 my $l = $Config::Config{'lib_ext'};
 
-# use ExtUtils::MakeMaker '6.05';
-
-my @local_jpeg = (
-    'INC'          => '-Ijpeg',
-    'MYEXTLIB'     => "jpeg/libjpeg$l",
-);
-
 use Tk::MMtry;
 
-if ($Tk::MMtry::VERSION ge '4.007' && try_run("jpeg/has_jpeg.c",['-I/usr/local/include'],['-ljpeg']))
+if ($Tk::MMtry::VERSION ge '4.007' && try_run("config/has_jpeg.c",['-I/usr/local/include'],['-ljpeg']))
  {
   push(@args, LIBS => ['-ljpeg'],
               INC  => '-I/usr/local/include',
@@ -47,8 +40,8 @@ Tk::MMutil::TkExtMakefile(@args,
 sub MY::test_via_harness
 {
  my($self, $perl, $tests) = @_;
- qq{\t$perl "-I../t" "-MTkTest" "-MExtUtils::Command::MM" }.
- qq{"-e" "check_display_harness; test_harness(\$(TEST_VERBOSE), '\$(INST_LIB)', '\$(INST_ARCHLIB)')" $tests\n};
+ qq{\t$perl "-I../t" "-MTkTest" }.
+ qq{"-e" "checked_test_harness('\$(TKDIR)/xt/skip_all.t', \$(TEST_VERBOSE), '\$(INST_LIB)', '\$(INST_ARCHLIB)')" $tests\n};
 }
 
 package MY;
