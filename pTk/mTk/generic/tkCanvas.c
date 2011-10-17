@@ -1794,7 +1794,7 @@ CanvasWidgetCmd(clientData, interp, objc, objv)
 	  }
 	  case CANV_CLEAR: {
 	    if (objc != 3) {
-		Tcl_AppendResult(interp, 3, objv, (char *) NULL);
+		Tcl_WrongNumArgs(interp, 3, objv, "tagOrId index");
 		result = TCL_ERROR;
 		goto done;
 	    }
@@ -2233,7 +2233,7 @@ ConfigureCanvas(interp, canvasPtr, objc, objv, flags)
 	}
 	if (argc2 != 4) {
 	    Tcl_AppendResult(interp, "bad scrollRegion \"",
-		    canvasPtr->regionArg, "\"", (char *) NULL);
+		    Tcl_GetString(canvasPtr->regionArg), "\"", (char *) NULL);
 	    badRegion:
 	    /* ckfree(canvasPtr->regionArg); */
 	    canvasPtr->regionArg = NULL;
