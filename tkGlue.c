@@ -155,7 +155,6 @@ extern XSdec(XS_Tk_CreateGenericHandler);
 extern void  LangPrint _((SV *sv));
 
 static void handle_idle _((ClientData clientData));
-static AV *CopyAv _((AV * dst, AV * src));
 static void LangCatArg _((SV * out, SV * sv, int refs));
 static SV *NameFromCv _((CV * cv));
 static AV *FindAv _((pTHX_ Tcl_Interp *interp, char *who, int create, char *key));
@@ -172,7 +171,6 @@ extern Tk_Window TkToMainWindow _((Tk_Window tkwin));
 static int isSwitch _((char *arg));
 static void Lang_ClearErrorInfo _((Tcl_Interp *interp));
 static void Lang_MaybeError _((Tcl_Interp *interp,int code,char *why));
-static int  all_printable _((char *s,int n));
 static void Set_widget _((SV *widget));
 static SV *tilde_magic _((SV *hv, SV *sv));
 static SV *struct_sv   _((void *ptr, STRLEN sz));
@@ -1466,27 +1464,6 @@ Font_DESTROY(SV *arg)
   }
 }
 
-static AV *
-CopyAv(dst, src)
-AV *dst;
-AV *src;
-{
- dTHX;
- int n = av_len(src) + 1;
- int i;
- av_clear(dst);
- for (i = 0; i < n; i++)
-  {
-   SV **x = av_fetch(src, i, 0);
-   if (x)
-    {
-     Increment(*x, "CopyAv");
-     av_store(dst, i, *x);
-    }
-  }
- return dst;
-}
-
 static void
 Lang_ClearErrorInfo(interp)
 Tcl_Interp *interp;
@@ -2410,20 +2387,6 @@ XS(XS_Tk__MainWindow_Create)
  TKXSRETURN(Return_Results(interp,items,offset));
 }
 
-
-static int
-all_printable(s,n)
-char *s;
-int n;
-{
- while (n-- > 0)
-  {
-   unsigned ch = *s++;
-   if (!isprint(ch) && ch != '\n' && ch != '\t')
-    return 0;
-  }
- return 1;
-}
 
 static int
 SelGetProc(clientData,interp,portion,numItems,format,type,tkwin)
@@ -3830,10 +3793,7 @@ ClientData clientData;
      return EXPIRE((interp, "Cannot trace readonly variable"));
     }
   }
- if (!SvUPGRADE(sv, SVt_PVMG))
-  {
-   return EXPIRE((interp, "Trace SvUPGRADE failed"));
-  }
+ (void)SvUPGRADE(sv, SVt_PVMG);
 
  if (SvTYPE(sv) == SVt_PVAV)
   {
@@ -4194,11 +4154,7 @@ int type;
    SV *x = NULL;
    int prefix = '?';
    name = SvPV(sv,na);
-#ifdef USE_ITHREADS
-   CopSTASHPV(PL_curcop) = NULL;
-#else
-   CopSTASH(PL_curcop) = NULL;
-#endif
+   CopSTASH_set(PL_curcop, NULL);
    switch (type)
     {
      case TK_CONFIG_SCALARVAR:

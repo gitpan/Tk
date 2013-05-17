@@ -535,12 +535,6 @@ LangString(SV *sv)
   }
 }
 
-void utf8Whoops(pTHX_ SV *objPtr)
-{
- sv_utf8_upgrade(objPtr);
- sv_dump(objPtr);
-}
-
 char *
 Tcl_GetStringFromObj (Tcl_Obj *objPtr, int *lengthPtr)
 {
@@ -563,9 +557,10 @@ Tcl_GetStringFromObj (Tcl_Obj *objPtr, int *lengthPtr)
 #ifdef SvUTF8
      if (!is_utf8_string(s,len))
       {
+     /*
        LangDebug("%s @ %d not utf8\n",__FUNCTION__,__LINE__);
        sv_dump(objPtr);
-       utf8Whoops(aTHX_ objPtr);
+     */
        s = SvPV(objPtr, len);
        if (!is_utf8_string(s,len))
         {
@@ -1521,11 +1516,11 @@ Tcl_ObjMagic(Tcl_Obj *obj,int add)
    iv->type = type;
    if (iv->type == &tclIntType)
     {
-     iv->internalRep.longValue = SvIV(obj);
+     iv->internalRep.longValue = SvIV_nomg(obj);
     }
    else if (iv->type == &tclDoubleType)
     {
-     iv->internalRep.doubleValue = SvNV(obj);
+     iv->internalRep.doubleValue = SvNV_nomg(obj);
     }
    return iv;
   }
