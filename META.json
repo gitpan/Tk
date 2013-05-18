@@ -4,7 +4,7 @@
       "nick@ing-simmons.net (Nick Ing-Simmons)"
    ],
    "dynamic_config" : 1,
-   "generated_by" : "ExtUtils::MakeMaker version 6.66, CPAN::Meta::Converter version 2.120921",
+   "generated_by" : "ExtUtils::MakeMaker version 6.64, CPAN::Meta::Converter version 2.120921",
    "license" : [
       "unrestricted"
    ],
@@ -43,5 +43,5 @@
          "url" : "http://github.com/eserte/perl-tk"
       }
    },
-   "version" : "804.030500"
+   "version" : "804.030501"
 }
