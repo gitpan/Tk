@@ -1986,6 +1986,7 @@ t/dialogbox.t
 t/dirtree.t
 t/entry.t
 t/errordialog.t
+t/eventGenerate.t
 t/exefiles.t
 t/fbox.t
 t/fileevent.t
@@ -2026,6 +2027,7 @@ t/TkTest.pm
 t/Tkxs.t
 t/trace1.t
 t/slaves.t
+t/sv.t
 t/unicode.t
 t/widget.t
 t/wm.t
@@ -2097,8 +2099,10 @@ Tk/cbxarrow.xbm
 Tk/Checkbutton.pm
 Tk/Clipboard.pm
 Tk/CmdLine.pm
+Tk/ColorDialog.pm
 Tk/ColorEdit.xpm
 Tk/ColorEditor.pm
+Tk/ColorSelect.pm
 Tk/Configure.pm
 Tk/Credits			Credits for .gif files
 Tk/Derived.pm
@@ -2212,6 +2216,6 @@ Xlib/Xlib.xs
 xt/font_attrs.t
 xt/mw_segfault.t
 xt/rt7474.t
-xt/skip_all.t
-META.yml                                 Module YAML meta-data (added by MakeMaker)
-META.json                                Module JSON meta-data (added by MakeMaker)
+xt/skip_all_font.t
+xt/skip_all_mw.t
+META.yml                                 Module meta-data (added by MakeMaker)

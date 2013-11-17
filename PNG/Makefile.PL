@@ -11,44 +11,65 @@ my $zlib = "libz$l";
 
 foreach my $file (qw(zlib/Makefile.PL libpng/Makefile.PL))
  {
+  next unless -f $file;
   chmod(0666,$file) unless -w $file;
   unlink($file);
  }
 
-my $libpng_cflags;
-my $libpng_libs;
-system('pkg-config --exists libpng');
-if ($? == 0) {
-    chomp($libpng_cflags = `pkg-config --cflags libpng`);
-    chomp($libpng_libs   = `pkg-config --libs libpng`);
-} else {
-    warn "'pkg-config libpng' failed, continue with fallback values for cflags and libs...\n";
-    $libpng_cflags = '-I/usr/local/include';
-    $libpng_libs   = '-lpng -lz -lm';
+my $all_cflags;
+my $all_libs;
+{
+ my $libpng_cflags;
+ my $libpng_libs;
+ system('pkg-config --exists libpng');
+ if ($? == 0)
+  {
+   chomp($libpng_cflags = `pkg-config --cflags libpng`);
+   chomp($libpng_libs   = `pkg-config --libs libpng`);
+  }
+ else
+  {
+   warn "'pkg-config libpng' failed, continue with fallback values for cflags and libs...\n";
+   $libpng_cflags = '-I/usr/local/include';
+   $libpng_libs   = '-lpng -lm';
+  }
+
+ my $zlib_cflags;
+ my $zlib_libs;
+ system('pkg-config --exists zlib');
+ if ($? == 0)
+  {
+   chomp($zlib_cflags = `pkg-config --cflags zlib`);
+   chomp($zlib_libs   = `pkg-config --libs zlib`);
+  }
+ else
+  {
+   warn "'pkg-config zlib' failed, continue with fallback values for cflags and libs...\n";
+   $zlib_cflags = '-I/usr/local/include';
+   $zlib_libs   = '-lz';
+  }
+
+ $all_cflags = "$libpng_cflags $zlib_cflags";
+ $all_libs   = "$libpng_libs $zlib_libs";
 }
 
 if ($Tk::MMtry::VERSION ge '4.007' &&
-    try_run("config/has_png.c",[$libpng_cflags],[$libpng_libs]))
+    try_run("config/has_png.c",[$all_cflags],[$all_libs]))
  {
+  warn "Using system's -lpng\n";
   Tk::MMutil::TkExtMakefile(
        NAME         => 'Tk::PNG',
        VERSION_FROM => 'PNG.pm',
        XS_VERSION   => $Tk::Config::VERSION,
        dist         => { COMPRESS => 'gzip -f9', SUFFIX => '.gz' },
        OBJECT       => '$(O_FILES)',
-       INC          => $libpng_cflags,
-       LIBS         => [$libpng_libs],
+       INC          => $all_cflags,
+       LIBS         => [$all_libs],
      );
  }
 else
  {
   my $ok = 1;
-  foreach my $file ("libpng/Makefile.PL","zlib/Makefile.PL")
-   {
-    next unless -f $file;
-    chmod(0666,$file);
-    unlink($file);
-   }
   unless (copy("Makefile.libpng.maybe","libpng/Makefile.PL"))
    {
     warn "Cannot copy Makefile.libpng.maybe => libpng/Makefile.PL ($!)";
@@ -94,7 +115,7 @@ sub MY::test_via_harness
 {
  my($self, $perl, $tests) = @_;
  qq{\t$perl "-I../t" "-MTkTest" }.
- qq{"-e" "checked_test_harness('\$(TKDIR)/xt/skip_all.t', \$(TEST_VERBOSE), '\$(INST_LIB)', '\$(INST_ARCHLIB)')" $tests\n};
+ qq{"-e" "checked_test_harness('\$(TKDIR)/xt', \$(TEST_VERBOSE), '\$(INST_LIB)', '\$(INST_ARCHLIB)')" $tests\n};
 }
 
 package MY;

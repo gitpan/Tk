@@ -1,4 +1,4 @@
-# Copyright (C) 2003,2006,2007,2010 Slaven Rezic. All rights reserved.
+# Copyright (C) 2003,2006,2007,2010,2013 Slaven Rezic. All rights reserved.
 # This program is free software; you can redistribute it and/or
 # modify it under the same terms as Perl itself.
 
@@ -6,11 +6,11 @@ package TkTest;
 
 use strict;
 use vars qw(@EXPORT @EXPORT_OK $eps $VERSION);
-$VERSION = '4.009';
+$VERSION = '4.010';
 
 use base qw(Exporter);
 @EXPORT    = qw(is_float is_float_pair checked_test_harness);
-@EXPORT_OK = qw(catch_grabs wm_info);
+@EXPORT_OK = qw(catch_grabs wm_info set_have_fixed_font with_fixed_font);
 
 sub _is_in_path ($);
 
@@ -18,7 +18,7 @@ use POSIX qw(DBL_EPSILON);
 $eps = DBL_EPSILON;
 
 sub checked_test_harness ($@) {
-    my($skip_test, @test_harness_args) = @_;
+    my($skip_test_dir, @test_harness_args) = @_;
 
     require ExtUtils::Command::MM;
     # In case of cygwin, use'ing Tk before forking (which is done by
@@ -37,9 +37,18 @@ sub checked_test_harness ($@) {
     }
 
     if (defined $Tk::platform && $Tk::platform eq 'unix') { # undef for cygwin+MSWin32, because Tk not yet loaded
+	my $skip_all_test;
 	my $mw = eval { MainWindow->new() };
 	if (!Tk::Exists($mw)) {
-	    local @ARGV = $skip_test;
+	    $skip_all_test = "skip_all_mw.t";
+	} else {
+	    my $l = eval { $mw->Label(-text => "test") }; # will allocate a font, which may fail
+	    if (!Tk::Exists($l)) {
+		$skip_all_test = "skip_all_font.t";
+	    }
+	}
+	if ($skip_all_test) {
+	    local @ARGV = "$skip_test_dir/$skip_all_test";
 	    return ExtUtils::Command::MM::test_harness(@test_harness_args);
 	}
 	$mw->destroy;
@@ -195,6 +204,24 @@ sub wm_info ($) {
     (name    => $wm_name,
      version => $wm_version,
     );
+}
+
+{
+    my $have_fixed_font;
+
+    sub set_have_fixed_font ($) {
+	$have_fixed_font = shift;
+    }
+
+    sub with_fixed_font (&) {
+	my $testcode = shift;
+	local $Test::Builder::Level = $Test::Builder::Level + 1;
+    SKIP:
+	{
+	    Test::More::skip("fixed courier font not available", 1) if !$have_fixed_font;
+	    $testcode->();
+	}
+    }
 }
 
 # REPO BEGIN
