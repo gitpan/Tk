@@ -6,11 +6,11 @@ package TkTest;
 
 use strict;
 use vars qw(@EXPORT @EXPORT_OK $eps $VERSION);
-$VERSION = '4.010';
+$VERSION = '4.011';
 
 use base qw(Exporter);
 @EXPORT    = qw(is_float is_float_pair checked_test_harness);
-@EXPORT_OK = qw(catch_grabs wm_info set_have_fixed_font with_fixed_font);
+@EXPORT_OK = qw(catch_grabs wm_info set_have_fixed_font with_fixed_font retry_update create_placeholder_widget);
 
 sub _is_in_path ($);
 
@@ -39,10 +39,12 @@ sub checked_test_harness ($@) {
     if (defined $Tk::platform && $Tk::platform eq 'unix') { # undef for cygwin+MSWin32, because Tk not yet loaded
 	my $skip_all_test;
 	my $mw = eval { MainWindow->new() };
+	print "# $@\n" if $@;
 	if (!Tk::Exists($mw)) {
 	    $skip_all_test = "skip_all_mw.t";
 	} else {
 	    my $l = eval { $mw->Label(-text => "test") }; # will allocate a font, which may fail
+	    print "# $@\n" if $@;
 	    if (!Tk::Exists($l)) {
 		$skip_all_test = "skip_all_font.t";
 	    }
@@ -219,8 +221,43 @@ sub wm_info ($) {
     SKIP:
 	{
 	    Test::More::skip("fixed courier font not available", 1) if !$have_fixed_font;
+	    local $Test::Builder::Level = $Test::Builder::Level + 1;
 	    $testcode->();
 	}
+    }
+}
+
+sub retry_update ($) {
+    my($w) = @_;
+
+    if ($Tk::platform eq 'unix') {
+	my $exposed;
+	$w->bind('<Expose>' => sub { $exposed = 1 });
+	for my $i (1..5) {
+	    $w->update;
+	    last if ($exposed);
+	    my $wait = $i + rand(0.1);
+	    Test::More::diag(sprintf("<Expose> event did not arrive, wait for %0.2fs...", $wait));
+	    $w->after($wait*1000);
+	}
+	$w->bind('<Expose>' => undef);
+    } else {
+	$w->update;
+    }
+}
+
+# Some WMs are slow when resizing the main window. This may cause test
+# failures, because the test suite does not wait for completion of the
+# WM (and probably cannot do it anyway). To avoid resizing the main
+# window, a placeholder widget is created. This widget has to be
+# re-created every time the main window is re-created, or if all
+# children are destroyed.
+sub create_placeholder_widget ($) {
+    my $mw = shift;
+    my %wm_info = wm_info $mw;
+    my $wm_name = $wm_info{name};
+    if (defined $wm_name && $wm_name =~ m{^( KWin | Fluxbox )$}x) {
+	$mw->Frame(-width => 640, -height => 1)->pack;
     }
 }
 
