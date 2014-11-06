@@ -3,7 +3,7 @@
 # modify it under the same terms as Perl itself.
 package Tk::Widget;
 use vars qw($VERSION @DefaultMenuLabels);
-$VERSION = '4.035'; # was: sprintf '4.%03d', q$Revision: #30 $ =~ /\D(\d+)\s*$/;
+$VERSION = '4.036'; # was: sprintf '4.%03d', q$Revision: #30 $ =~ /\D(\d+)\s*$/;
 
 require Tk;
 use AutoLoader;
@@ -1475,9 +1475,9 @@ sub bindDump {
                     }
                 } elsif ($callback =~ /ARRAY/) {
                     if (ref $callback->[0]) {
-                        push @out, sprintf( "%s %s\n", ' ' x $spc1, $callback->[0], "\n" );
+                        push @out, sprintf( "%s %s\n", ' ' x $spc1, $callback->[0] );
                     } else {
-                        push @out, sprintf( "%s '%s'\n", ' ' x $spc1, $callback->[0], "\n" );
+                        push @out, sprintf( "%s '%s'\n", ' ' x $spc1, $callback->[0] );
                     }
                     foreach my $arg (@$callback[1 .. $#$callback]) {
                         if (ref $arg) {

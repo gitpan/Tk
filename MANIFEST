@@ -972,6 +972,7 @@ pod/DItem.pod
 pod/DupName/Dialog.pod
 pod/Entry.pod
 pod/Error.pod
+pod/ErrorDialog.pod
 pod/event.pod
 pod/Eventloop.pod
 pod/exit.pod
@@ -2218,4 +2219,5 @@ xt/mw_segfault.t
 xt/rt7474.t
 xt/skip_all_font.t
 xt/skip_all_mw.t
-META.yml                                 Module meta-data (added by MakeMaker)
+META.yml                                 Module YAML meta-data (added by MakeMaker)
+META.json                                Module JSON meta-data (added by MakeMaker)

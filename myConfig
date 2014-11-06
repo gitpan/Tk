@@ -147,7 +147,12 @@ sub Ift
 {
  foreach (map { "$_/freetype2" } @_)
   {
-   if (-d $_ && -d "$_/freetype" && -r "$_/freetype/freetype.h")
+   if (-r "$_/freetype.h") # location in Debian (since jessie) and in newer versions of the FreeBSD port
+    {
+     print "Using -I$_ to find $_/freetype/freetype.h\n";
+     return "-I$_";
+    }
+   if (-r "$_/freetype/freetype.h") # location in FreeBSD (older versions of freetype2 port) and Debian (up to wheezy)
     {
      print "Using -I$_ to find $_/freetype/freetype.h\n";
      return "-I$_";
@@ -350,7 +355,7 @@ if ($win_arch eq 'x') {
   #
   # Prefer 64bit libraries on certain architectures
   #
-  unless (defined $xlib and $Config{'archname'} =~ m/x86_64/)
+  if (!defined $xlib and $Config{'archname'} =~ m/x86_64/)
     {
       $xlib = &lX11(0, chooseX11(</usr/X11*/lib64>));
     }
